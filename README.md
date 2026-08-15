@@ -35,6 +35,24 @@ Everything you can tap is built. What sits behind it is not yet a server.
 | Native map with real coordinates and styling | Photos are generated from the category, not uploaded |
 | Distance, price, rating and date formatting | Verification codes are not actually sent |
 
+## Landing page
+
+`landing/` is a plain static site — no build step, no dependencies. Open
+`landing/index.html` in a browser, or drop the folder on any host:
+
+```bash
+npx serve landing              # local preview
+node landing/build-inline.mjs  # one self-contained HTML file, for sharing
+```
+
+Screenshots in it come from `landing/img/`, exported from the real app. Two
+things to change before it goes live:
+
+- The App Store and Google Play buttons are marked "coming soon" and link
+  nowhere. Swap in the real URLs, and replace the buttons with Apple's and
+  Google's official badge artwork — their brand guidelines require it.
+- The social links and Privacy in the footer are `#` placeholders.
+
 State lives in one React context (`src/lib/store.tsx`). Its mutations —
 `updateBusiness`, `addBusiness`, `replyToReview` — are the shape the API calls
 will take, so wiring a backend is a change to that one file rather than to

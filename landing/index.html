@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nearby — find the good places near you</title>
+    <meta
+      name="description"
+      content="Search every kind of business near you, see what is open right now, and get directions in two taps. Free to use, and free to list your own business."
+    />
+    <meta name="theme-color" content="#FF5A1F" />
+
+    <meta property="og:title" content="Nearby" />
+    <meta
+      property="og:description"
+      content="Find the good places right where you are. Free on iOS and Android."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="./img/home.webp" />
+
+    <link rel="icon" href="./favicon.png" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <!-- ============================================================ nav -->
+    <header class="nav" id="nav">
+      <div class="shell nav__inner">
+        <a class="brand" href="#top">
+          <span class="brand__mark" aria-hidden="true">
+            <svg viewBox="0 0 1024 1024" fill="none">
+              <path
+                d="M512 196C632 196 724 288 724 404C724 566 512 836 512 836C512 836 300 566 300 404C300 288 392 196 512 196Z"
+                fill="#fff"
+              />
+              <circle cx="512" cy="404" r="82" fill="#FF5A1F" />
+            </svg>
+          </span>
+          Nearby
+        </a>
+
+        <nav aria-label="Main">
+          <ul class="nav__links">
+            <li><a href="#features">Features</a></li>
+            <li><a href="#how">How it works</a></li>
+            <li><a href="#owners">For owners</a></li>
+            <li><a href="#download">Download</a></li>
+          </ul>
+        </nav>
+
+        <a class="btn btn--dark" href="#download">
+          Get the app
+          <span class="btn__chip" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </span>
+        </a>
+      </div>
+    </header>
+
+    <main id="top">
+      <!-- ======================================================== hero -->
+      <div class="hero">
+        <span class="hero__cloud hero__cloud--a" aria-hidden="true"></span>
+        <span class="hero__cloud hero__cloud--b" aria-hidden="true"></span>
+        <span class="hero__cloud hero__cloud--c" aria-hidden="true"></span>
+
+        <div class="shell hero__grid">
+          <div class="hero__copy">
+            <p class="eyebrow">Free &middot; iOS and Android</p>
+            <h1>Find the good places near you</h1>
+            <p class="lede">
+              Search every kind of business around you, see what is open right
+              now, and get directions in two taps. Own one? List it free and
+              manage it yourself.
+            </p>
+
+            <div class="hero__ctas">
+              <a class="btn btn--accent" href="#download">
+                Get the app
+                <span class="btn__chip" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 5v14M6 13l6 6 6-6" />
+                  </svg>
+                </span>
+              </a>
+              <a class="textlink" href="#how">See how it works &rarr;</a>
+            </div>
+          </div>
+
+          <div class="hero__art">
+            <div class="device device--hero">
+              <img
+                src="./img/home.webp"
+                alt="The Nearby home screen, showing businesses near Westlands, Nairobi"
+                width="560"
+                height="1213"
+                fetchpriority="high"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="shell">
+          <div class="stats">
+            <div class="stat">
+              <span class="stat__value">10 categories</span>
+              <span class="stat__label">Restaurants to plumbers, all in one place</span>
+            </div>
+            <div class="stat">
+              <span class="stat__value">Free to list</span>
+              <span class="stat__label">No fee for business owners, ever</span>
+            </div>
+            <div class="stat">
+              <span class="stat__value">Two taps</span>
+              <span class="stat__label">From opening the app to walking directions</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================================================== features -->
+      <section id="features">
+        <div class="shell">
+          <div class="section-head">
+            <p class="eyebrow">Features</p>
+            <h2>Everything you need to find a place worth going</h2>
+            <p class="lede">
+              Real opening hours, honest prices and reviews you can read before
+              you leave the house.
+            </p>
+          </div>
+
+          <div class="feature-board">
+            <div class="feature-row">
+              <article class="card">
+                <div class="card__shot">
+                  <img src="./img/search.webp" alt="Search results filtered by rating" width="560" height="1213" loading="lazy" />
+                </div>
+                <h3>Filter until it fits</h3>
+                <p>
+                  Sort by rating, distance or price. Narrow to what is open now,
+                  then stop looking.
+                </p>
+              </article>
+
+              <article class="card">
+                <div class="card__shot">
+                  <img src="./img/map.webp" alt="Map view with business pins" width="560" height="1213" loading="lazy" />
+                </div>
+                <h3>See it on the map</h3>
+                <p>
+                  Every result as a pin, colour-coded by category. Tap one and
+                  the details slide up.
+                </p>
+              </article>
+
+              <article class="card">
+                <div class="card__shot">
+                  <!-- Cropped past the cover photo: the card should show the
+                       hours and rating, not a picture of a coffee cup. -->
+                  <img src="./img/listing-detail.webp" alt="A business listing showing rating, opening hours and actions" width="560" height="903" loading="lazy" />
+                </div>
+                <h3>Know before you go</h3>
+                <p>
+                  Hours, phone, price range, amenities and what other people
+                  actually said.
+                </p>
+              </article>
+            </div>
+
+            <div class="feature-row">
+              <article class="card">
+                <span class="card__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l8.8 8.8 8.8-8.8a5.5 5.5 0 0 0 0-7.8z" />
+                  </svg>
+                </span>
+                <h3>Save for later</h3>
+                <p>
+                  Tap the heart on anywhere you want to come back to. It waits
+                  for you in one list.
+                </p>
+              </article>
+
+              <article class="card">
+                <span class="card__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 7v5l3.2 2" />
+                  </svg>
+                </span>
+                <h3>Open right now</h3>
+                <p>
+                  Not "usually open" &mdash; open at this minute, counted from
+                  the hours each owner set.
+                </p>
+              </article>
+
+              <article class="card">
+                <span class="card__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21.5 2.5 2.5 10l8 3.5 3.5 8z" />
+                  </svg>
+                </span>
+                <h3>Directions in two taps</h3>
+                <p>
+                  Pick a place, hit directions, and your maps app takes it from
+                  there.
+                </p>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =================================================== accordion -->
+      <section id="how">
+        <div class="shell">
+          <div class="split">
+            <div>
+              <div class="split__head">
+                <p class="eyebrow">How it works</p>
+                <h2>One app, from curious to on your way</h2>
+              </div>
+
+              <div class="accordion" id="accordion">
+                <div class="accordion__item" data-open="true" data-shot="./img/search.webp">
+                  <h3>
+                    <button class="accordion__trigger" type="button" aria-expanded="true" aria-controls="panel-1" id="trigger-1">
+                      Search what is around you
+                      <span class="accordion__dot" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M5 12h14M13 6l6 6-6 6" />
+                        </svg>
+                      </span>
+                    </button>
+                  </h3>
+                  <div class="accordion__panel" id="panel-1" role="region" aria-labelledby="trigger-1">
+                    Type what you want or pick a category. Results are ranked by
+                    how well reviewed a place is and how close it is to you.
+                  </div>
+                </div>
+
+                <div class="accordion__item" data-shot="./img/map.webp">
+                  <h3>
+                    <button class="accordion__trigger" type="button" aria-expanded="false" aria-controls="panel-2" id="trigger-2">
+                      Compare on the map
+                      <span class="accordion__dot" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M5 12h14M13 6l6 6-6 6" />
+                        </svg>
+                      </span>
+                    </button>
+                  </h3>
+                  <div class="accordion__panel" id="panel-2" role="region" aria-labelledby="trigger-2">
+                    Switch to the map to see how far each option really is.
+                    Filter to one category and the rest drop away.
+                  </div>
+                </div>
+
+                <div class="accordion__item" data-shot="./img/listing.webp">
+                  <h3>
+                    <button class="accordion__trigger" type="button" aria-expanded="false" aria-controls="panel-3" id="trigger-3">
+                      Decide, then go
+                      <span class="accordion__dot" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M5 12h14M13 6l6 6-6 6" />
+                        </svg>
+                      </span>
+                    </button>
+                  </h3>
+                  <div class="accordion__panel" id="panel-3" role="region" aria-labelledby="trigger-3">
+                    Read the reviews, check the hours, call ahead if you want.
+                    Then take the directions and go.
+                  </div>
+                </div>
+
+                <div class="accordion__item" data-shot="./img/saved.webp">
+                  <h3>
+                    <button class="accordion__trigger" type="button" aria-expanded="false" aria-controls="panel-4" id="trigger-4">
+                      Keep the good ones
+                      <span class="accordion__dot" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M5 12h14M13 6l6 6-6 6" />
+                        </svg>
+                      </span>
+                    </button>
+                  </h3>
+                  <div class="accordion__panel" id="panel-4" role="region" aria-labelledby="trigger-4">
+                    Save the places that turned out well, and find them again
+                    without searching twice.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="split__art">
+              <div class="device device--flat split__phone">
+                <img
+                  id="accordion-shot"
+                  src="./img/search.webp"
+                  alt="Nearby search results"
+                  width="560"
+                  height="1213"
+                  loading="lazy"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======================================================= owner -->
+      <section id="owners">
+        <div class="shell">
+          <div class="owner">
+            <div class="owner__copy">
+              <p class="eyebrow">For business owners</p>
+              <h2>Own a business? It is free to list.</h2>
+              <p class="lede" style="color: var(--dark-muted)">
+                Claim your listing, keep it accurate, and see who is looking for
+                you. No commission, no monthly fee.
+              </p>
+              <ul class="owner__list">
+                <li>
+                  <span class="owner__tick" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 9.5 18 20 6.5" /></svg>
+                  </span>
+                  Edit your hours, photos, prices and contact details yourself
+                </li>
+                <li>
+                  <span class="owner__tick" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 9.5 18 20 6.5" /></svg>
+                  </span>
+                  Reply to every review in public, from your phone
+                </li>
+                <li>
+                  <span class="owner__tick" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 9.5 18 20 6.5" /></svg>
+                  </span>
+                  See weekly views, calls and direction requests
+                </li>
+              </ul>
+              <a class="btn btn--accent" href="#download">
+                List your business
+                <span class="btn__chip" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12h14M13 6l6 6-6 6" />
+                  </svg>
+                </span>
+              </a>
+            </div>
+
+            <div class="split__art">
+              <div class="device device--flat split__phone">
+                <img
+                  src="./img/dashboard.webp"
+                  alt="The owner dashboard, showing weekly profile views, calls and direction requests"
+                  width="560"
+                  height="1213"
+                  loading="lazy"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================== download -->
+      <section id="download">
+        <div class="shell download">
+          <p class="eyebrow">Download</p>
+          <h2>Put it on your phone</h2>
+          <p class="lede" style="text-align: center">
+            One app, both stores. Free, and free of ads.
+          </p>
+
+          <div class="stores">
+            <!-- Swap these hrefs for the real store URLs once the app is live,
+                 and replace these buttons with Apple's and Google's official
+                 badge artwork, which their brand guidelines require. -->
+            <a class="store" href="#" aria-disabled="true">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M16.4 12.7c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.2-2.8.9-3.5.9s-1.8-.8-3-.8c-1.5 0-2.9.9-3.7 2.3-1.6 2.7-.4 6.8 1.1 9 .8 1.1 1.7 2.3 2.9 2.2 1.2 0 1.6-.7 3-.7s1.8.7 3 .7 2-1.1 2.8-2.2c.9-1.2 1.2-2.4 1.2-2.5 0 0-2.4-.9-2.4-3.6zM14.2 5.9c.6-.8 1.1-1.9 1-3-.9 0-2.1.6-2.8 1.4-.6.7-1.2 1.9-1 2.9 1 .1 2.1-.5 2.8-1.3z" />
+              </svg>
+              <span class="store__text">
+                <span class="store__small">Coming soon to</span>
+                <span class="store__big">App Store</span>
+              </span>
+            </a>
+
+            <a class="store" href="#" aria-disabled="true">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M3.6 2.3c-.3.3-.5.8-.5 1.4v16.6c0 .6.2 1.1.5 1.4l.1.1 9.3-9.3v-.2L3.6 2.3zM16.2 15.6l-3.1-3.1v-.2l3.1-3.1.1.1 3.7 2.1c1 .6 1 1.6 0 2.2l-3.7 2.1-.1-.1zM15.4 16.4 12.2 13.2 2.9 22.5c.3.4.9.4 1.5.1l11-6.2M15.4 7.6 4.4 1.4c-.6-.3-1.2-.3-1.5.1l9.3 9.3 3.2-3.2z" />
+              </svg>
+              <span class="store__text">
+                <span class="store__small">Coming soon to</span>
+                <span class="store__big">Google Play</span>
+              </span>
+            </a>
+          </div>
+
+          <p class="download__note">
+            Not on the stores yet. You can run it today with Expo Go &mdash;
+            clone the repo, <code>npm install</code>, <code>npx expo start</code>,
+            then scan the QR code.
+          </p>
+
+          <a class="textlink" href="https://github.com/Leejoneske/nearby">
+            View the source on GitHub &rarr;
+          </a>
+
+          <div class="download__fan">
+            <div class="device device--flat">
+              <img src="./img/listing.webp" alt="A Nearby business listing" width="560" height="1213" loading="lazy" />
+            </div>
+            <div class="device device--flat">
+              <img src="./img/home.webp" alt="The Nearby home screen" width="560" height="1213" loading="lazy" />
+            </div>
+            <div class="device device--flat">
+              <img src="./img/map.webp" alt="The Nearby map screen" width="560" height="1213" loading="lazy" />
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ========================================================= footer -->
+    <footer class="footer">
+      <div class="shell">
+        <div class="footer__grid">
+          <div class="footer__brand">
+            <a class="brand" href="#top" style="color: #fff">
+              <span class="brand__mark" aria-hidden="true">
+                <svg viewBox="0 0 1024 1024" fill="none">
+                  <path
+                    d="M512 196C632 196 724 288 724 404C724 566 512 836 512 836C512 836 300 566 300 404C300 288 392 196 512 196Z"
+                    fill="#fff"
+                  />
+                  <circle cx="512" cy="404" r="82" fill="#FF5A1F" />
+                </svg>
+              </span>
+              Nearby
+            </a>
+            <p>
+              Find the good places right where you are. Free to use, and free to
+              list your business.
+            </p>
+            <div class="socials">
+              <a href="#" aria-label="Nearby on Instagram">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" /></svg>
+              </a>
+              <a href="#" aria-label="Nearby on Facebook">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 9h3V6h-3c-2 0-3.5 1.5-3.5 3.5V12H8v3h2.5v7h3v-7H16l.5-3h-3v-2c0-.6.4-1 1-1z" /></svg>
+              </a>
+              <a href="#" aria-label="Nearby on X">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 3h3l-6.6 7.5L21.7 21h-6l-4.7-6.1L5.6 21h-3l7-8-6.8-10h6.1l4.3 5.7L17.5 3zm-1 16h1.6L7.6 4.7H5.9L16.5 19z" /></svg>
+              </a>
+            </div>
+          </div>
+
+          <div>
+            <h4>Product</h4>
+            <ul>
+              <li><a href="#features">Features</a></li>
+              <li><a href="#how">How it works</a></li>
+              <li><a href="#download">Download</a></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4>Business</h4>
+            <ul>
+              <li><a href="#owners">List your business</a></li>
+              <li><a href="#owners">Owner dashboard</a></li>
+              <li><a href="#owners">Claim a listing</a></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4>More</h4>
+            <ul>
+              <li><a href="https://github.com/Leejoneske/nearby">Source code</a></li>
+              <li><a href="#">Privacy</a></li>
+              <li><a href="#">Contact</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="footer__base">
+          <span>&copy; 2026 Nearby</span>
+          <span>Made in Nairobi</span>
+        </div>
+      </div>
+    </footer>
+
+    <script src="./main.js"></script>
+  </body>
+</html>
