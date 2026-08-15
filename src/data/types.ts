@@ -1,0 +1,111 @@
+/** Domain types for Nearby. */
+
+export type CategoryId =
+  | 'restaurant'
+  | 'cafe'
+  | 'beauty'
+  | 'shopping'
+  | 'auto'
+  | 'health'
+  | 'fitness'
+  | 'hotel'
+  | 'services'
+  | 'nightlife';
+
+export type Category = {
+  id: CategoryId;
+  label: string;
+  /** Ionicons glyph name. */
+  icon: string;
+};
+
+/** Minutes from midnight, local to the business. `null` closed that day. */
+export type DayHours = { open: number; close: number } | null;
+
+/** Index 0 is Sunday, to line up with Date#getDay. */
+export type WeekHours = [
+  DayHours,
+  DayHours,
+  DayHours,
+  DayHours,
+  DayHours,
+  DayHours,
+  DayHours,
+];
+
+export type Review = {
+  id: string;
+  authorName: string;
+  authorInitials: string;
+  rating: number;
+  /** ISO date. */
+  date: string;
+  body: string;
+  /** Owner's public reply, when they have written one. */
+  ownerReply?: { body: string; date: string };
+};
+
+export type Business = {
+  id: string;
+  name: string;
+  categoryId: CategoryId;
+  /** Free-text descriptor under the name, e.g. "Specialty coffee roaster". */
+  tagline: string;
+  description: string;
+  rating: number;
+  reviewCount: number;
+  /** 1–4, rendered as $–$$$$. */
+  priceLevel: number;
+  /** Typical spend, in the local currency, for the price-range row. */
+  priceFrom: number;
+  priceTo: number;
+  address: string;
+  neighbourhood: string;
+  phone: string;
+  website?: string;
+  lat: number;
+  lng: number;
+  /** Metres from the viewer. Precomputed in mock data. */
+  distanceM: number;
+  photos: string[];
+  hours: WeekHours;
+  amenities: string[];
+  reviews: Review[];
+  /** Set when the signed-in user owns this listing. */
+  ownedByViewer?: boolean;
+  /** Verified via the claim flow. */
+  verified?: boolean;
+  /** Promotion shown in the "Today's offers" rail. */
+  offer?: { label: string; detail: string };
+  /** Owner-facing stats, only populated for listings the viewer owns. */
+  insights?: {
+    viewsThisWeek: number;
+    viewsLastWeek: number;
+    callsThisWeek: number;
+    directionsThisWeek: number;
+    searchAppearances: number;
+  };
+};
+
+export type SortKey = 'relevance' | 'rating' | 'distance' | 'priceLow';
+
+export type Filters = {
+  sort: SortKey;
+  /** Selected price levels; empty means any. */
+  priceLevels: number[];
+  /** Max distance in metres; null means any. */
+  radiusM: number | null;
+  openNow: boolean;
+  categoryId: CategoryId | null;
+  /** Minimum rating; null means any. */
+  minRating: number | null;
+};
+
+export const DEFAULT_FILTERS: Filters = {
+  sort: 'relevance',
+  priceLevels: [],
+  radiusM: null,
+  openNow: false,
+  categoryId: null,
+  minRating: null,
+};

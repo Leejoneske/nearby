@@ -1,0 +1,574 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useMemo } from 'react';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useScreenInsets } from '../../lib/insets';
+
+import { Button } from '../../components/Button';
+import { MapCanvas } from '../../components/MapCanvas';
+import { Photo } from '../../components/Photo';
+import { Stars } from '../../components/Stars';
+import { Avatar, Card, EmptyState, Pill } from '../../components/primitives';
+import { categoryOf } from '../../data/categories';
+import {
+  formatDistance,
+  formatPriceRange,
+  formatRelativeDate,
+  formatReviewCount,
+} from '../../lib/format';
+import { DAY_NAMES, formatDayRange, openState } from '../../lib/hours';
+import { useStore } from '../../lib/store';
+import { absoluteFill, colors, radii, shadows, spacing, typography } from '../../theme/tokens';
+
+export default function BusinessScreen() {
+  const router = useRouter();
+  const insets = useScreenInsets();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { getBusiness, isSaved, toggleSaved } = useStore();
+
+  const business = getBusiness(id);
+  const now = useMemo(() => new Date(), []);
+
+  if (!business) {
+    return (
+      <View style={[styles.screen, styles.centered]}>
+        <EmptyState
+          icon="alert-circle-outline"
+          title="Listing not found"
+          body="This business may have been removed. Try searching for it again."
+        />
+        <View style={styles.notFoundAction}>
+          <Button label="Back to search" onPress={() => router.replace('/search')} size="md" />
+        </View>
+      </View>
+    );
+  }
+
+  const state = openState(business.hours, now);
+  const saved = isSaved(business.id);
+  const category = categoryOf(business.categoryId);
+  const today = new Date().getDay();
+
+  const ratingBreakdown = useMemo(() => {
+    const counts = [0, 0, 0, 0, 0];
+    business.reviews.forEach((r) => {
+      const bucket = Math.min(4, Math.max(0, Math.round(r.rating) - 1));
+      counts[bucket] += 1;
+    });
+    return counts;
+  }, [business.reviews]);
+
+  return (
+    <View style={styles.screen}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+      >
+        {/* Hero */}
+        <View style={styles.hero}>
+          <Photo
+            categoryId={business.categoryId}
+            seed={business.id}
+            uri={business.photos[0]}
+            style={styles.heroPhoto}
+            radius={0}
+            iconSize={54}
+          />
+          <View style={[styles.heroBar, { top: insets.top + spacing.sm }]}>
+            <Pressable
+              onPress={() => router.back()}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+              style={styles.heroButton}
+            >
+              <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
+            </Pressable>
+            <View style={styles.heroBarRight}>
+              <Pressable
+                onPress={() => toggleSaved(business.id)}
+                accessibilityRole="button"
+                accessibilityLabel={saved ? 'Remove from saved' : 'Save this business'}
+                style={styles.heroButton}
+              >
+                <Ionicons
+                  name={saved ? 'heart' : 'heart-outline'}
+                  size={20}
+                  color={saved ? colors.accent : colors.textPrimary}
+                />
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Share this business"
+                style={styles.heroButton}
+              >
+                <Ionicons name="share-outline" size={20} color={colors.textPrimary} />
+              </Pressable>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.sheet}>
+          {/* Title block */}
+          <View style={styles.titleBlock}>
+            <View style={styles.badgeRow}>
+              <Pill label={category.label} icon={category.icon} tone="accent" />
+              {business.verified ? (
+                <Pill label="Verified" icon="checkmark-circle" tone="success" />
+              ) : null}
+              {business.ownedByViewer ? <Pill label="You manage this" icon="key" /> : null}
+            </View>
+
+            <Text style={styles.name}>{business.name}</Text>
+            <Text style={styles.tagline}>{business.tagline}</Text>
+
+            <View style={styles.ratingRow}>
+              <Stars rating={business.rating} size={15} showAllStars />
+              <Text style={styles.ratingValue}>{business.rating.toFixed(1)}</Text>
+              <Text style={styles.ratingCount}>({formatReviewCount(business.reviewCount)})</Text>
+            </View>
+
+            <View style={styles.statusRow}>
+              <Text style={[styles.status, state.isOpen ? styles.open : styles.closed]}>
+                {state.label}
+              </Text>
+              <Text style={styles.dot}>·</Text>
+              <Text style={styles.statusMeta}>{formatDistance(business.distanceM)} away</Text>
+            </View>
+          </View>
+
+          {/* Actions */}
+          <View style={styles.actionRow}>
+            <Action
+              icon="call"
+              label="Call"
+              primary
+              onPress={() => Linking.openURL(`tel:${business.phone.replace(/\s/g, '')}`)}
+            />
+            <Action icon="navigate" label="Directions" />
+            <Action
+              icon="globe-outline"
+              label="Website"
+              disabled={!business.website}
+              onPress={() =>
+                business.website ? Linking.openURL(`https://${business.website}`) : undefined
+              }
+            />
+            <Action icon="chatbubble-ellipses-outline" label="Review" />
+          </View>
+
+          {/* About */}
+          <Section title="About">
+            <Text style={styles.body}>{business.description}</Text>
+            <View style={styles.amenityRow}>
+              {business.amenities.map((amenity) => (
+                <Pill key={amenity} label={amenity} />
+              ))}
+            </View>
+          </Section>
+
+          {/* Details */}
+          <Section title="Details">
+            <Card style={styles.detailCard}>
+              <DetailLine icon="location-outline" text={business.address} />
+              <DetailLine icon="call-outline" text={business.phone} />
+              {business.website ? (
+                <DetailLine icon="globe-outline" text={business.website} />
+              ) : null}
+              <DetailLine
+                icon="pricetag-outline"
+                text={`Typical spend ${formatPriceRange(business.priceFrom, business.priceTo)}`}
+                last
+              />
+            </Card>
+          </Section>
+
+          {/* Hours */}
+          <Section title="Opening hours">
+            <Card>
+              {DAY_NAMES.map((day, index) => (
+                <View
+                  key={day}
+                  style={[styles.hourRow, index < 6 && styles.hourDivider]}
+                >
+                  <Text style={[styles.hourDay, index === today && styles.hourToday]}>
+                    {day}
+                    {index === today ? ' · today' : ''}
+                  </Text>
+                  <Text style={[styles.hourValue, index === today && styles.hourToday]}>
+                    {formatDayRange(business.hours[index])}
+                  </Text>
+                </View>
+              ))}
+            </Card>
+          </Section>
+
+          {/* Location */}
+          <Section title="Location">
+            <View style={styles.mapCard}>
+              <MapCanvas
+                region={{
+                  latitude: business.lat,
+                  longitude: business.lng,
+                  latitudeDelta: 0.012,
+                  longitudeDelta: 0.012,
+                }}
+                markers={[
+                  {
+                    id: business.id,
+                    lat: business.lat,
+                    lng: business.lng,
+                    label: business.name,
+                    icon: category.icon,
+                    selected: true,
+                  },
+                ]}
+              />
+            </View>
+            <Text style={styles.mapAddress}>{business.address}</Text>
+          </Section>
+
+          {/* Reviews */}
+          <Section
+            title={`Reviews (${business.reviewCount})`}
+            action={business.reviews.length > 2 ? 'See all' : undefined}
+          >
+            <Card style={styles.summaryCard}>
+              <View style={styles.summaryLeft}>
+                <Text style={styles.summaryScore}>{business.rating.toFixed(1)}</Text>
+                <Stars rating={business.rating} size={13} showAllStars />
+                <Text style={styles.summaryCount}>{formatReviewCount(business.reviewCount)}</Text>
+              </View>
+              <View style={styles.summaryBars}>
+                {[5, 4, 3, 2, 1].map((star) => {
+                  const count = ratingBreakdown[star - 1];
+                  const total = Math.max(1, business.reviews.length);
+                  return (
+                    <View key={star} style={styles.barRow}>
+                      <Text style={styles.barLabel}>{star}</Text>
+                      <View style={styles.barTrack}>
+                        <View
+                          style={[styles.barFill, { width: `${(count / total) * 100}%` }]}
+                        />
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            </Card>
+
+            {business.reviews.map((review) => (
+              <Card key={review.id} style={styles.reviewCard}>
+                <View style={styles.reviewHeader}>
+                  <Avatar initials={review.authorInitials} size={38} />
+                  <View style={styles.reviewMeta}>
+                    <Text style={styles.reviewAuthor}>{review.authorName}</Text>
+                    <View style={styles.reviewSubRow}>
+                      <Stars rating={review.rating} size={12} showAllStars />
+                      <Text style={styles.reviewDate}>
+                        {formatRelativeDate(review.date, now)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                <Text style={styles.reviewBody}>{review.body}</Text>
+
+                {review.ownerReply ? (
+                  <View style={styles.reply}>
+                    <View style={styles.replyHeader}>
+                      <Ionicons name="return-down-forward" size={14} color={colors.accent} />
+                      <Text style={styles.replyLabel}>Response from the owner</Text>
+                    </View>
+                    <Text style={styles.replyBody}>{review.ownerReply.body}</Text>
+                  </View>
+                ) : null}
+              </Card>
+            ))}
+          </Section>
+
+          {/* Claim / manage */}
+          {business.ownedByViewer ? (
+            <View style={styles.claimBlock}>
+              <Button
+                label="Manage this listing"
+                icon="settings-outline"
+                onPress={() => router.push(`/owner/edit/${business.id}`)}
+              />
+            </View>
+          ) : (
+            <Pressable
+              onPress={() => router.push('/owner/claim')}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.claimCard, pressed && { opacity: 0.9 }]}
+            >
+              <Ionicons name="business-outline" size={20} color={colors.textPrimary} />
+              <View style={styles.claimCopy}>
+                <Text style={styles.claimTitle}>Is this your business?</Text>
+                <Text style={styles.claimBody}>
+                  Claim it to edit the details, reply to reviews and see who is finding you.
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+            </Pressable>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* Sticky bottom bar */}
+      <View style={[styles.stickyBar, { paddingBottom: insets.bottom + spacing.md }]}>
+        <View style={styles.stickyPrice}>
+          <Text style={styles.stickyLabel}>Typical spend</Text>
+          <Text style={styles.stickyValue} numberOfLines={1}>
+            {formatPriceRange(business.priceFrom, business.priceTo)}
+          </Text>
+        </View>
+        <Button
+          label="Get directions"
+          icon="navigate"
+          size="md"
+          fullWidth={false}
+          style={styles.stickyButton}
+        />
+      </View>
+    </View>
+  );
+}
+
+function Section({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionHead}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        {action ? <Text style={styles.sectionAction}>{action}</Text> : null}
+      </View>
+      {children}
+    </View>
+  );
+}
+
+function Action({
+  icon,
+  label,
+  onPress,
+  primary,
+  disabled,
+}: {
+  icon: string;
+  label: string;
+  onPress?: () => void;
+  primary?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={disabled ? undefined : onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
+      style={({ pressed }) => [styles.action, pressed && { opacity: 0.7 }, disabled && { opacity: 0.4 }]}
+    >
+      <View style={[styles.actionIcon, primary && styles.actionIconPrimary]}>
+        <Ionicons
+          name={icon as never}
+          size={19}
+          color={primary ? colors.textOnAccent : colors.textPrimary}
+        />
+      </View>
+      <Text style={styles.actionLabel}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function DetailLine({ icon, text, last }: { icon: string; text: string; last?: boolean }) {
+  return (
+    <View style={[styles.detailLine, !last && styles.detailDivider]}>
+      <Ionicons name={icon as never} size={17} color={colors.textSecondary} />
+      <Text style={styles.detailText}>{text}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.canvas },
+  centered: { justifyContent: 'center' },
+  notFoundAction: { paddingHorizontal: spacing.huge },
+
+  hero: { height: 260 },
+  heroPhoto: { ...absoluteFill },
+  heroBar: {
+    position: 'absolute',
+    left: spacing.screen,
+    right: spacing.screen,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  heroBarRight: { flexDirection: 'row', gap: spacing.sm },
+  heroButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.card,
+  },
+
+  sheet: {
+    marginTop: -spacing.xxl,
+    backgroundColor: colors.canvas,
+    borderTopLeftRadius: radii.xxl,
+    borderTopRightRadius: radii.xxl,
+    paddingTop: spacing.xl,
+  },
+
+  titleBlock: { paddingHorizontal: spacing.screen, gap: spacing.sm },
+  badgeRow: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
+  name: { ...typography.display, fontSize: 28, lineHeight: 34, color: colors.textPrimary },
+  tagline: { ...typography.body, color: colors.textSecondary, marginTop: -spacing.xs },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  ratingValue: { ...typography.bodyStrong, color: colors.textPrimary },
+  ratingCount: { ...typography.meta, color: colors.textSecondary },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  status: { ...typography.metaStrong },
+  open: { color: colors.success },
+  closed: { color: colors.danger },
+  dot: { color: colors.textTertiary },
+  statusMeta: { ...typography.meta, color: colors.textSecondary },
+
+  actionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: spacing.screen,
+    paddingVertical: spacing.xl,
+  },
+  action: { alignItems: 'center', gap: spacing.sm, width: 72 },
+  actionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.card,
+  },
+  actionIconPrimary: { backgroundColor: colors.accent },
+  actionLabel: { ...typography.caption, fontSize: 11.5, color: colors.textSecondary },
+
+  section: { paddingHorizontal: spacing.screen, marginBottom: spacing.xxl, gap: spacing.md },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionTitle: { ...typography.sectionTitle, color: colors.textPrimary },
+  sectionAction: { ...typography.metaStrong, color: colors.accent },
+  body: { ...typography.body, color: colors.textSecondary },
+  amenityRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+
+  detailCard: { paddingVertical: spacing.xs },
+  detailLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  detailDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  detailText: { ...typography.body, color: colors.textPrimary, flex: 1 },
+
+  hourRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md - 2,
+  },
+  hourDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  hourDay: { ...typography.body, color: colors.textSecondary },
+  hourValue: { ...typography.body, color: colors.textPrimary },
+  hourToday: { fontWeight: '700', color: colors.textPrimary },
+
+  mapCard: {
+    height: 180,
+    borderRadius: radii.xl,
+    overflow: 'hidden',
+    ...shadows.card,
+  },
+  mapAddress: { ...typography.meta, color: colors.textSecondary },
+
+  summaryCard: { flexDirection: 'row', gap: spacing.xl, alignItems: 'center' },
+  summaryLeft: { alignItems: 'center', gap: 3, width: 96 },
+  summaryScore: { ...typography.display, fontSize: 36, color: colors.textPrimary },
+  summaryCount: { ...typography.caption, color: colors.textSecondary },
+  summaryBars: { flex: 1, gap: 5 },
+  barRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  barLabel: { ...typography.caption, color: colors.textSecondary, width: 8 },
+  barTrack: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.surfaceSunken,
+    overflow: 'hidden',
+  },
+  barFill: { height: '100%', borderRadius: 3, backgroundColor: colors.star },
+
+  reviewCard: { gap: spacing.md },
+  reviewHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  reviewMeta: { flex: 1, gap: 2 },
+  reviewAuthor: { ...typography.bodyStrong, color: colors.textPrimary },
+  reviewSubRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  reviewDate: { ...typography.caption, color: colors.textTertiary },
+  reviewBody: { ...typography.body, color: colors.textSecondary },
+  reply: {
+    backgroundColor: colors.canvas,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  replyHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs + 2 },
+  replyLabel: { ...typography.caption, color: colors.accentPressed, fontWeight: '700' },
+  replyBody: { ...typography.meta, color: colors.textSecondary },
+
+  claimBlock: { paddingHorizontal: spacing.screen, marginBottom: spacing.xxl },
+  claimCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginHorizontal: spacing.screen,
+    marginBottom: spacing.xxl,
+    backgroundColor: colors.surface,
+    borderRadius: radii.xl,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  claimCopy: { flex: 1, gap: 2 },
+  claimTitle: { ...typography.bodyStrong, color: colors.textPrimary },
+  claimBody: { ...typography.meta, color: colors.textSecondary },
+
+  stickyBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.lg,
+    paddingHorizontal: spacing.screen,
+    paddingTop: spacing.md,
+    backgroundColor: colors.surface,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  stickyPrice: { flex: 1, gap: 1 },
+  stickyLabel: { ...typography.caption, color: colors.textTertiary },
+  stickyValue: { ...typography.bodyStrong, color: colors.textPrimary },
+  stickyButton: { paddingHorizontal: spacing.xl },
+});
