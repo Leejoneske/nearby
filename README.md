@@ -47,7 +47,8 @@ node landing/build-inline.mjs  # one self-contained HTML file, for sharing
 
 ### Deploying it
 
-`vercel.json` at the repo root configures the whole thing:
+Live at **https://nearby-lake.vercel.app** — deployed from `main` on every
+push. `vercel.json` at the repo root configures the whole thing:
 
 ```json
 "framework": null,          // not a web framework, do not auto-detect
