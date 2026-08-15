@@ -45,6 +45,27 @@ npx serve landing              # local preview
 node landing/build-inline.mjs  # one self-contained HTML file, for sharing
 ```
 
+### Deploying it
+
+`vercel.json` at the repo root configures the whole thing:
+
+```json
+"framework": null,          // not a web framework, do not auto-detect
+"installCommand": "",       // skip npm install — the page has no dependencies
+"buildCommand": "",         // skip the build — the page is already built
+"outputDirectory": "landing"
+```
+
+Without those, Vercel would try to install and build the React Native app to
+publish a static page — roughly 800 packages for nothing.
+
+Connect the repository in the Vercel dashboard and every push to `main`
+redeploys. **Leave the project's Root Directory at the repository root**;
+pointing it at `landing/` moves where Vercel looks for `vercel.json` and these
+settings stop applying.
+
+Any other static host works too — serve the `landing/` folder.
+
 Screenshots in it come from `landing/img/`, exported from the real app. Two
 things to change before it goes live:
 
