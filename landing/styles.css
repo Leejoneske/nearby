@@ -716,11 +716,88 @@ section {
   gap: 20px;
 }
 
+/* The APK button leads, so it is taller than the store buttons beneath it. */
+.btn--download {
+  height: 62px;
+  font-size: 16.5px;
+  padding: 0 10px 0 32px;
+  margin-top: 6px;
+}
+
+.btn--download.is-disabled {
+  background: var(--sunk);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.btn--download.is-disabled:hover {
+  transform: none;
+  background: var(--sunk);
+}
+
+.btn--download.is-disabled .btn__chip {
+  background: var(--line);
+  color: var(--muted);
+}
+
+.apk-meta {
+  font-size: 13.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-height: 20px;
+}
+
+.howto {
+  /* Fixed width, so opening it does not make the box jump wider. */
+  width: min(52ch, 100%);
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 4px 20px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.howto summary {
+  cursor: pointer;
+  padding: 14px 0;
+  font-weight: 600;
+  color: var(--ink);
+  font-size: 14.5px;
+  list-style-position: outside;
+}
+
+.howto summary::marker {
+  color: var(--accent);
+}
+
+.howto ol {
+  margin: 0 0 14px;
+  padding-left: 20px;
+  display: grid;
+  gap: 8px;
+  line-height: 1.5;
+}
+
+.howto p {
+  margin: 0 0 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.howto strong {
+  color: var(--ink);
+}
+
+/* A visual divider so the "coming soon" stores read as secondary. */
 .stores {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   justify-content: center;
+  margin-top: 8px;
 }
 
 .store {

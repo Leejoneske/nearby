@@ -1,0 +1,91 @@
+name: Build Android APK
+
+# Produces the APK the landing page links to.
+#
+#   - Run it by hand from the Actions tab to publish a build right now.
+#   - Or push a tag like v1.0.1 to cut a versioned release.
+#
+# The asset is always named nearby.apk, which is what makes
+# /releases/latest/download/nearby.apk a stable link the site can rely on.
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Expo SDK 57 / React Native 0.86 builds against JDK 17.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Read app version
+        id: version
+        run: echo "value=$(node -p "require('./app.json').expo.version")" >> "$GITHUB_OUTPUT"
+
+      # android/ is generated, not committed, so it is rebuilt from app.json
+      # every run and cannot drift from the config.
+      - name: Generate the native Android project
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Build release APK
+        run: ./gradlew assembleRelease --no-daemon
+        working-directory: android
+
+      - name: Stage the asset
+        run: cp android/app/build/outputs/apk/release/app-release.apk nearby.apk
+
+      - name: Name this build
+        id: meta
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=v${{ steps.version.outputs.value }}-build.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Keep the APK even if publishing the release fails.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nearby-apk
+          path: nearby.apk
+
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: Nearby ${{ steps.meta.outputs.tag }}
+          files: nearby.apk
+          generate_release_notes: true
+          body: |
+            **Android APK — install it directly.**
+
+            Download `nearby.apk` below, open it on your phone, and allow
+            installing from this source when Android asks. Play Protect may
+            warn that the app is unknown, because it is not on the Play Store
+            yet; choose **Install anyway**.
+
+            Android 8 or newer. iPhone cannot install APKs.
+
+            This build is signed with the project's development key, which is
+            fine for installing directly but is not the key the Play Store
+            requires — Play Store releases go through `eas build`.

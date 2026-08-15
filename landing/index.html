@@ -390,8 +390,47 @@
           <p class="eyebrow">Download</p>
           <h2>Put it on your phone</h2>
           <p class="lede" style="text-align: center">
-            One app, both stores. Free, and free of ads.
+            Android now, both stores soon. Free, and free of ads.
           </p>
+
+          <!--
+            The APK is the only download that works before the app is on the
+            stores, so it leads. The href is GitHub's stable "latest release"
+            URL, which works with no JavaScript at all; main.js then upgrades
+            it to the exact asset and fills in the version and file size.
+          -->
+          <a
+            class="btn btn--accent btn--download"
+            id="apk-download"
+            href="https://github.com/Leejoneske/nearby/releases/latest/download/nearby.apk"
+          >
+            <span id="apk-label">Download for Android</span>
+            <span class="btn__chip" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 4v12M6 14l6 6 6-6M4 21h16" />
+              </svg>
+            </span>
+          </a>
+          <p class="apk-meta" id="apk-meta">Checking for the latest build&hellip;</p>
+
+          <details class="howto">
+            <summary>How to install an APK</summary>
+            <ol>
+              <li>Tap the download button and let the file finish saving.</li>
+              <li>
+                Open it. Android will ask permission to install from this
+                source the first time &mdash; allow it, then press Install.
+              </li>
+              <li>
+                You may see a Play Protect warning because the app is not on
+                the Play Store yet. Choose <strong>Install anyway</strong>.
+              </li>
+            </ol>
+            <p>
+              Android 8 or newer. iPhone cannot install APKs &mdash; iOS apps
+              can only come from the App Store or TestFlight.
+            </p>
+          </details>
 
           <div class="stores">
             <!-- Swap these hrefs for the real store URLs once the app is live,
@@ -419,9 +458,10 @@
           </div>
 
           <p class="download__note">
-            Not on the stores yet. You can run it today with Expo Go &mdash;
-            clone the repo, <code>npm install</code>, <code>npx expo start</code>,
-            then scan the QR code.
+            Not on the stores yet, so Android is the direct download above.
+            On iPhone, or if you would rather run it from source, clone the
+            repo and use Expo Go: <code>npm install</code>, then
+            <code>npx expo start</code> and scan the QR code.
           </p>
 
           <a class="textlink" href="https://github.com/Leejoneske/nearby">

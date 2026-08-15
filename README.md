@@ -67,6 +67,31 @@ settings stop applying.
 
 Any other static host works too — serve the `landing/` folder.
 
+### The APK download
+
+The landing page's Android button points at
+`releases/latest/download/nearby.apk` — a URL GitHub keeps pointing at the
+newest release, so the page never needs redeploying when a build ships. On
+load the page asks the GitHub API which release is current and fills in the
+version, size and date. If no release exists, or the newest one has no APK
+attached, the button says so instead of sending anyone to a 404.
+
+To publish a build, run **Actions → Build Android APK → Run workflow**, or
+push a tag:
+
+```bash
+git tag v1.0.1 && git push origin v1.0.1
+```
+
+The workflow runs `expo prebuild` and `gradlew assembleRelease` on a GitHub
+runner, then attaches `nearby.apk` to a release. It needs no secrets and no
+Expo account.
+
+That APK is signed with the project's development key. That is fine for
+installing directly — it is not the key Google Play requires, so Play Store
+releases go through `eas build -p android`, which produces an `.aab` and
+manages the upload key for you.
+
 Screenshots in it come from `landing/img/`, exported from the real app. Two
 things to change before it goes live:
 
