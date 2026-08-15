@@ -47,6 +47,10 @@ jobs:
       - name: Generate the native Android project
         run: npx expo prebuild --platform android --no-install
 
+      # android/ is generated, so the executable bit is not carried by git.
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
       - name: Build release APK
         run: ./gradlew assembleRelease --no-daemon
         working-directory: android
