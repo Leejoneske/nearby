@@ -5,7 +5,7 @@
  * caught. An address the app wrongly rejects is a person who cannot sign in
  * at all, and there is no error message that makes that acceptable.
  */
-import { isPlausibleEmail } from '../identity';
+import { boxCount, isPlausibleEmail } from '../identity';
 import { describePlace } from '../useOrigin';
 
 describe('isPlausibleEmail', () => {
@@ -93,5 +93,25 @@ describe('describePlace', () => {
       FALLBACK_AREA,
     );
     expect(area).toBe('Nakuru');
+  });
+});
+
+describe('boxCount', () => {
+  it('never draws fewer than six boxes', () => {
+    expect(boxCount(0)).toBe(6);
+    expect(boxCount(3)).toBe(6);
+    expect(boxCount(6)).toBe(6);
+  });
+
+  it('grows to fit a longer code', () => {
+    // Supabase allows the OTP length to be set up to ten. An eight digit
+    // code silently truncated to six is what sent somebody round in circles.
+    expect(boxCount(8)).toBe(8);
+    expect(boxCount(10)).toBe(10);
+  });
+
+  it('stops at ten', () => {
+    expect(boxCount(11)).toBe(10);
+    expect(boxCount(99)).toBe(10);
   });
 });

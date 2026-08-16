@@ -20,11 +20,15 @@ import {
 } from 'react-native';
 
 import { Button } from '../../components/Button';
+import {
+  boxCount,
+  MAX_CODE_LENGTH as MAX_LENGTH,
+  MIN_CODE_LENGTH as MIN_LENGTH,
+} from '../../lib/identity';
 import { useScreenInsets } from '../../lib/insets';
 import { supabase } from '../../lib/supabase';
 import { colors, radii, spacing, typography } from '../../theme/tokens';
 
-const LENGTH = 6;
 const RESEND_SECONDS = 30;
 
 export default function VerifyScreen() {
@@ -45,7 +49,7 @@ export default function VerifyScreen() {
   const [checking, setChecking] = useState(false);
 
   const submit = async (value: string) => {
-    if (value.length < LENGTH || checking) return;
+    if (value.length < MIN_LENGTH || checking) return;
     setChecking(true);
     const { error: verifyError } = await supabase.auth.verifyOtp({
       email: (email ?? '').trim().toLowerCase(),
@@ -64,10 +68,9 @@ export default function VerifyScreen() {
   };
 
   const onChange = (next: string) => {
-    const digits = next.replace(/[^\d]/g, '').slice(0, LENGTH);
+    const digits = next.replace(/[^\d]/g, '').slice(0, MAX_LENGTH);
     setCode(digits);
     if (error) setError(undefined);
-    if (digits.length === LENGTH) void submit(digits);
   };
 
   return (
@@ -94,7 +97,7 @@ export default function VerifyScreen() {
 
         <Text style={styles.title}>Enter your code</Text>
         <Text style={styles.body}>
-          We sent six digits to{' '}
+          We sent a code to{' '}
           {email ? <Text style={styles.phone}>{email}</Text> : 'your inbox'}. It may
           take a moment to arrive.
         </Text>
@@ -103,9 +106,9 @@ export default function VerifyScreen() {
           style={styles.boxes}
           onPress={() => inputRef.current?.focus()}
           accessibilityRole="button"
-          accessibilityLabel="Enter the six digit code"
+          accessibilityLabel="Enter the code we sent you"
         >
-          {Array.from({ length: LENGTH }).map((_, index) => {
+          {Array.from({ length: boxCount(code.length) }).map((_, index) => {
             const char = code[index];
             const active = index === code.length;
             return (
@@ -128,7 +131,7 @@ export default function VerifyScreen() {
           keyboardType="number-pad"
           textContentType="oneTimeCode"
           autoComplete="sms-otp"
-          maxLength={LENGTH}
+          maxLength={MAX_LENGTH}
           autoFocus
           style={styles.hiddenInput}
           accessibilityLabel="Verification code"
@@ -138,13 +141,13 @@ export default function VerifyScreen() {
           <Button
             label="Verify"
             onPress={() => {
-              if (code.length < LENGTH) {
-                setError('Enter all six digits');
+              if (code.length < MIN_LENGTH) {
+                setError('Enter the whole code from the email');
                 return;
               }
               void submit(code);
             }}
-            disabled={code.length < LENGTH}
+            disabled={code.length < MIN_LENGTH}
             loading={checking}
           />
 

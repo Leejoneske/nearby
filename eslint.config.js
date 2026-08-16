@@ -14,6 +14,9 @@ module.exports = [
       'node_modules/*',
       'admin/node_modules/*',
       '.expo/*',
+      // Deno, not Node: URL imports and a Deno global that this config's
+      // resolver has no way to understand.
+      'supabase/functions/*',
     ],
   },
   {

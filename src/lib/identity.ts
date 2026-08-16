@@ -19,3 +19,19 @@
 export function isPlausibleEmail(input: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(input.trim());
 }
+
+/*
+ * How many digits a sign-in code has is the server's decision.
+ *
+ * Supabase lets the OTP length be set anywhere from six to ten, and the
+ * verify screen used to hard-code six: an eight digit code arrived, the field
+ * truncated it to the first six, and the app reported that the code did not
+ * work. It was right that it did not work and wrong about why.
+ */
+export const MIN_CODE_LENGTH = 6;
+export const MAX_CODE_LENGTH = 10;
+
+/** Boxes to draw: never fewer than the minimum, never more than the maximum. */
+export function boxCount(entered: number): number {
+  return Math.min(MAX_CODE_LENGTH, Math.max(MIN_CODE_LENGTH, entered));
+}
