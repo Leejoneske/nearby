@@ -256,15 +256,8 @@ p {
   width: 30px;
   height: 30px;
   flex: none;
-  border-radius: 9px;
-  background: var(--accent);
-  display: grid;
-  place-items: center;
-}
-
-.brand__mark svg {
-  width: 17px;
-  height: 17px;
+  /* The mark carries its own colour now, so it needs no tile behind it. */
+  object-fit: contain;
 }
 
 .nav__links {

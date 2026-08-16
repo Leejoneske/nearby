@@ -52,12 +52,7 @@ const background = Buffer.from(`
     <circle cx="1080" cy="120" r="200" fill="#FFFFFF" opacity="0.8"/>
     <circle cx="880" cy="560" r="130" fill="#FFFFFF" opacity="0.55"/>
 
-    <!-- mark -->
-    <rect x="80" y="82" width="56" height="56" rx="17" fill="${ACCENT}"/>
-    <g transform="translate(94 94) scale(0.03125)">
-      <path d="M512 196C632 196 724 288 724 404C724 566 512 836 512 836C512 836 300 566 300 404C300 288 392 196 512 196Z" fill="#FFFFFF"/>
-      <circle cx="512" cy="404" r="82" fill="${ACCENT}"/>
-    </g>
+    <!-- the mark itself is composited in below, from the shared artwork -->
     <text x="152" y="122" font-family="Helvetica, Arial, sans-serif" font-size="34" font-weight="bold" fill="${INK}" letter-spacing="-0.5">Nearby</text>
 
     <!-- headline -->
@@ -73,9 +68,16 @@ const background = Buffer.from(`
   </svg>
 `);
 
+// The same mark.png the page's nav uses, rather than a second hand-drawn
+// copy of an older pin — which is how a brand ends up with two logos.
+const mark = await sharp(join(HERE, 'img', 'mark.png')).resize(60, 60).toBuffer();
+
 const out = join(HERE, 'img', 'og.png');
 const info = await sharp(background)
-  .composite([{ input: rounded, left: W - pw - 96, top: Math.round((H - ph) / 2) }])
+  .composite([
+    { input: mark, left: 80, top: 80 },
+    { input: rounded, left: W - pw - 96, top: Math.round((H - ph) / 2) },
+  ])
   .png({ compressionLevel: 9 })
   .toFile(out);
 

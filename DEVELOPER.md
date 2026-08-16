@@ -340,6 +340,42 @@ The same reasoning applies to any text derived from data that has not landed.
 "0 businesses open near you" is a false statement during a load, not a neutral
 one, so the hero says it is still looking.
 
+## One piece of artwork, seven icons
+
+`assets/source/icon.png` is the only drawing of the mark. Everything else —
+the launcher icon, the adaptive foreground, the themed silhouette, the splash
+mark, both favicons, the touch icon, the landing page's nav mark and the
+social card — is rendered from it by `node scripts/generate-icons.mjs`. Change
+the source, re-run the script, commit what falls out. Never hand-edit a file
+in `assets/images/` or `landing/img/mark.png`.
+
+Two things about that source shape the script, and would shape a replacement:
+
+- **It is transparent inside the ring as well as outside it.** The white
+  circle you see is whatever is behind the file. So compositing the mark onto
+  a colour puts that colour inside the ring too, and an orange counter inside
+  an orange ring is not a ring. `fillCounter` floods in from the edges and
+  fills whatever transparency it could not reach.
+- **It is not square and not tightly cropped.** Resizing it as-is centres the
+  canvas rather than the mark. It is trimmed and re-padded first.
+
+The mark is orange, so **it needs a light ground**: the adaptive-icon
+background and the splash background are white for that reason. They were
+orange when the mark was white. If the mark ever changes colour, those two
+change with it, or the pin's outline disappears and only the storefront is
+left floating.
+
+### sharp does not run calls in the order you write them
+
+This cost two broken renders. `.extend()` chained onto `.resize()` resizes
+first and pads second; `.composite()` chained onto `.resize()` shrinks the
+canvas before pasting. Both produce either a buffer whose dimensions do not
+match what was asked for — read back at the wrong stride, which is a page of
+stripes — or an outright "image to composite must have same dimensions or
+smaller".
+
+Materialise to a buffer between steps whenever the order matters.
+
 ## Tests
 
 `npm test`. Prefer tests that need no renderer and no network: `src/lib/` is
