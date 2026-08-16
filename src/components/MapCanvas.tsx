@@ -4,13 +4,20 @@
  * The web build resolves MapCanvas.web.tsx instead — react-native-maps has no
  * web implementation, and a business directory has to render something on the
  * web preview rather than crash.
+ *
+ * Android also falls back to the drawn map when the build has no Maps SDK
+ * key. Google's view does not report that as an error; it just renders an
+ * empty grey rectangle, so without this check a missing key looks exactly
+ * like a broken app.
  */
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_DEFAULT, type Region } from 'react-native-maps';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { hasRealMap } from '../lib/mapsKey';
 import { colors, radii, shadows, tones, type ToneName } from '../theme/tokens';
 import { MAP_STYLE } from '../theme/mapStyle';
+import { SchematicMap } from './SchematicMap';
 
 export type MapMarker = {
   id: string;
@@ -31,6 +38,17 @@ type Props = {
 };
 
 export function MapCanvas({ region, markers, onSelectMarker, style }: Props) {
+  if (!hasRealMap()) {
+    return (
+      <SchematicMap
+        region={region}
+        markers={markers}
+        onSelectMarker={onSelectMarker}
+        style={style}
+      />
+    );
+  }
+
   return (
     <MapView
       provider={PROVIDER_DEFAULT}

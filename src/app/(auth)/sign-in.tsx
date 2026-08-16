@@ -21,15 +21,10 @@ import {
 
 import { Button } from '../../components/Button';
 import { Field } from '../../components/Field';
+import { isPlausibleEmail } from '../../lib/identity';
 import { useScreenInsets } from '../../lib/insets';
 import { supabase } from '../../lib/supabase';
 import { colors, radii, spacing, typography } from '../../theme/tokens';
-
-/** Deliberately loose: the only real test is whether the code arrives. */
-export function isPlausibleEmail(input: string): boolean {
-  const trimmed = input.trim();
-  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(trimmed);
-}
 
 export default function SignInScreen() {
   const router = useRouter();

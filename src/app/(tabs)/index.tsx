@@ -6,6 +6,7 @@ import { useScreenInsets } from '../../lib/insets';
 
 import { BusinessCard } from '../../components/BusinessCard';
 import { CategoryTile } from '../../components/Chip';
+import { OwnerCta } from '../../components/OwnerCta';
 import { SearchField } from '../../components/SearchField';
 import { Avatar, SectionHeader } from '../../components/primitives';
 import { CATEGORIES, CATEGORY_TONES } from '../../data/categories';
@@ -254,22 +255,11 @@ export default function HomeScreen() {
         </ScrollView>
 
         {/* Owner call to action */}
-        <Pressable
+        <OwnerCta
+          title="Own a business?"
+          body="List it free and manage your own profile."
           onPress={() => router.push('/owner/claim')}
-          accessibilityRole="button"
-          style={({ pressed }) => [styles.ownerCta, pressed && { opacity: 0.9 }]}
-        >
-          <View style={styles.ownerIcon}>
-            <Ionicons name="business" size={22} color={colors.textOnAccent} />
-          </View>
-          <View style={styles.ownerCopy}>
-            <Text style={styles.ownerTitle}>Own a business?</Text>
-            <Text style={styles.ownerBody}>
-              List it free and manage your own profile.
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.textOnAccent} />
-        </Pressable>
+        />
       </ScrollView>
     </View>
   );
@@ -414,24 +404,4 @@ const styles = StyleSheet.create({
   offerFooter: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs },
   offerMeta: { ...typography.caption, fontSize: 11.5, color: colors.textTertiary, flexShrink: 1 },
 
-  ownerCta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginHorizontal: spacing.screen,
-    backgroundColor: colors.accent,
-    borderRadius: radii.xxl,
-    padding: spacing.lg,
-  },
-  ownerIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: radii.lg,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ownerCopy: { flex: 1, gap: 2 },
-  ownerTitle: { ...typography.cardTitle, color: colors.textOnAccent },
-  ownerBody: { ...typography.meta, color: 'rgba(255,255,255,0.9)' },
 });

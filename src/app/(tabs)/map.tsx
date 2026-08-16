@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScreenInsets } from '../../lib/insets';
@@ -10,7 +10,6 @@ import { Photo } from '../../components/Photo';
 import { SearchField } from '../../components/SearchField';
 import { Stars } from '../../components/Stars';
 import { CATEGORIES, CATEGORY_TONES, categoryOf } from '../../data/categories';
-import { DEFAULT_ORIGIN } from '../../data/location';
 import type { CategoryId } from '../../data/types';
 import { formatDistance, formatPriceRange } from '../../lib/format';
 import { openState } from '../../lib/hours';
@@ -29,10 +28,13 @@ import {
 export default function MapScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
-  const { businesses, isSaved, toggleSaved } = useStore();
+  const { businesses, isSaved, toggleSaved, origin } = useStore();
+
+  // Arriving from a listing's Directions button: open on that one.
+  const { focus } = useLocalSearchParams<{ focus?: string }>();
 
   const [categoryId, setCategoryId] = useState<CategoryId | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>('kahawa-collective');
+  const [picked, setPicked] = useState<string | null>(null);
   const now = useMemo(() => new Date(), []);
 
   const visible = useMemo(
@@ -40,17 +42,30 @@ export default function MapScreen() {
     [businesses, categoryId],
   );
 
+  // What the map opened on until somebody taps a different pin. Derived
+  // rather than copied into state by an effect, so a new `focus` param does
+  // not need syncing.
+  const selectedId = picked ?? focus ?? null;
   const selected = visible.find((b) => b.id === selectedId) ?? null;
 
-  const region = useMemo(
-    () => ({
-      latitude: DEFAULT_ORIGIN.lat,
-      longitude: DEFAULT_ORIGIN.lng,
-      latitudeDelta: 0.075,
-      longitudeDelta: 0.075,
-    }),
-    [],
-  );
+  /*
+   * Centre on the listing we were sent to look at, otherwise on wherever the
+   * device is. This used to be pinned to the city the app was built around,
+   * so anybody outside it opened a map of somewhere else with no pins in
+   * frame — which looks exactly like a map that failed to load.
+   *
+   * The span tightens when there is one place to look at: a 7 km window
+   * around a single shop tells you nothing about where it is.
+   */
+  const region = useMemo(() => {
+    const span = selected ? 0.012 : 0.075;
+    return {
+      latitude: selected?.lat ?? origin.lat,
+      longitude: selected?.lng ?? origin.lng,
+      latitudeDelta: span,
+      longitudeDelta: span,
+    };
+  }, [selected, origin.lat, origin.lng]);
 
   const markers = useMemo(
     () =>
@@ -70,7 +85,7 @@ export default function MapScreen() {
 
   return (
     <View style={styles.screen}>
-      <MapCanvas region={region} markers={markers} onSelectMarker={setSelectedId} />
+      <MapCanvas region={region} markers={markers} onSelectMarker={setPicked} />
 
       {/* Floating search + filters */}
       <View style={[styles.top, { paddingTop: insets.top + spacing.sm }]} pointerEvents="box-none">
@@ -110,7 +125,7 @@ export default function MapScreen() {
               selected={categoryId === category.id}
               onPress={() => {
                 setCategoryId(categoryId === category.id ? null : category.id);
-                setSelectedId(null);
+                setPicked(null);
               }}
             />
           ))}

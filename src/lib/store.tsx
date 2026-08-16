@@ -26,8 +26,10 @@ import React, {
   type ReactNode,
 } from 'react';
 
+import { router } from 'expo-router';
+
 import { DEFAULT_AREA, DEFAULT_CITY } from '../data/location';
-import type { AppNotification, Business, Review, Session } from '../data/types';
+import type { AppNotification, Business, NewBusiness, Review, Session } from '../data/types';
 import * as api from './api';
 import { initialsOf } from './format';
 import { supabase } from './supabase';
@@ -60,6 +62,8 @@ type StoreValue = {
   refresh: () => Promise<void>;
   /** True once distances are measured from the device rather than the city. */
   locationPrecise: boolean;
+  /** Where "near you" is measured from. The map centres here. */
+  origin: { lat: number; lng: number };
 
   /** Loads the reviews for one listing, which lists do not carry. */
   loadDetail: (id: string) => Promise<void>;
@@ -86,7 +90,10 @@ type StoreValue = {
   ownedBusinesses: Business[];
 
   updateBusiness: (id: string, patch: Partial<Business>) => void;
-  addBusiness: (business: Business) => void;
+  /** Lists a new business. Resolves to its id, or throws with a reason. */
+  addBusiness: (input: NewBusiness) => Promise<string>;
+  /** Takes over an unowned listing. Throws with a reason if refused. */
+  claimBusiness: (id: string) => Promise<void>;
   replyToReview: (businessId: string, reviewId: string, body: string) => void;
   addReview: (businessId: string, review: Review) => void;
 };
@@ -99,7 +106,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [session, setSession] = useState<Session>({ status: 'loading', phone: null });
+  const [session, setSession] = useState<Session>({ status: 'loading', email: null });
   const [profileId, setProfileId] = useState<string | null>(null);
   // Only the parts a person edits are stored. Where they are comes from the
   // device, so it is derived below rather than copied into state and kept in
@@ -211,7 +218,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     function applySession(next: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session']) {
       if (!next?.user) {
-        setSession({ status: 'signedOut', phone: null });
+        setSession({ status: 'signedOut', email: null });
         setProfileId(null);
         setProfile({
           name: GUEST.name,
@@ -223,8 +230,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setNotifications([]);
         return;
       }
-      setSession({ status: 'signedIn', phone: next.user.phone ?? null });
+      setSession({ status: 'signedIn', email: next.user.email ?? null });
       setProfileId(next.user.id);
+      // The address they signed in with is the address we know them by, so
+      // it is read from the session rather than kept as a second editable
+      // copy that can disagree with it.
+      setProfile((prev) => ({ ...prev, email: next.user.email ?? '' }));
     }
 
     return () => {
@@ -298,10 +309,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const business = businesses.find((b) => b.id === id);
       const next = !savedIds.includes(id);
 
+      /*
+       * Nothing to save it to. This used to fill the heart in anyway and
+       * drop the write on the floor, so the place was gone on next launch
+       * with nothing to explain why. Ask for the account instead.
+       */
+      if (!profileId) {
+        router.push('/(auth)/sign-in');
+        return;
+      }
+
       // Move the heart immediately; put it back if the write is refused.
       setSavedIds((prev) => (next ? [id, ...prev] : prev.filter((x) => x !== id)));
 
-      if (!profileId || !business?.dbId) return;
+      if (!business?.dbId) return;
       api.setSaved(profileId, business.dbId, next).catch((e) => {
         console.warn('[store] saving failed', e);
         setSavedIds((prev) => (next ? prev.filter((x) => x !== id) : [id, ...prev]));
@@ -369,9 +390,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [businesses],
   );
 
-  const addBusiness = useCallback((business: Business) => {
-    setBusinesses((prev) => [business, ...prev]);
-  }, []);
+  /*
+   * Listing and claiming both write first and reload after, rather than
+   * showing an optimistic row. Everything else in here can be put back if a
+   * write is refused; a listing cannot — it has a database-generated id that
+   * the detail screen immediately navigates to, and inventing one locally is
+   * how you get a screen pointing at a listing that does not exist.
+   */
+  const addBusiness = useCallback(
+    async (input: NewBusiness) => {
+      const slug = await api.createBusinessRemote({
+        name: input.name,
+        category: input.categoryId,
+        tagline: input.tagline,
+        address: input.address,
+        neighbourhood: input.neighbourhood,
+        phone: input.phone,
+        lat: input.lat ?? origin.lat,
+        lng: input.lng ?? origin.lng,
+      });
+      await loadBusinesses();
+      return slug;
+    },
+    [origin.lat, origin.lng, loadBusinesses],
+  );
+
+  const claimBusiness = useCallback(
+    async (id: string) => {
+      await api.claimBusinessRemote(id);
+      await loadBusinesses();
+    },
+    [loadBusinesses],
+  );
 
   const replyToReview = useCallback(
     (businessId: string, reviewId: string, body: string) => {
@@ -399,6 +449,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (businessId: string, review: Review) => {
       const business = businesses.find((b) => b.id === businessId);
 
+      // Same reasoning as saving: a review nobody wrote down is worse than
+      // being asked to sign in, because the person believes they posted it.
+      if (!profileId) {
+        router.push('/(auth)/sign-in');
+        return;
+      }
+
       setBusinesses((prev) =>
         prev.map((b) => {
           if (b.id !== businessId) return b;
@@ -413,7 +470,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }),
       );
 
-      if (!profileId || !business?.dbId) return;
+      if (!business?.dbId) return;
       api
         .createReview({
           businessDbId: business.dbId,
@@ -441,6 +498,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       loading,
       error,
       refresh: loadBusinesses,
+      origin,
       locationPrecise: precise,
       loadDetail,
       recordEvent,
@@ -461,15 +519,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ownedBusinesses,
       updateBusiness,
       addBusiness,
+      claimBusiness,
       replyToReview,
       addReview,
     }),
     [
-      businesses, loading, error, loadBusinesses, precise, loadDetail, recordEvent,
+      businesses, loading, error, loadBusinesses, precise, origin, loadDetail, recordEvent,
       viewer, session, signOut, updateViewer,
       notifications, unreadCount, markNotificationRead, markAllNotificationsRead,
       savedIds, isSaved, toggleSaved, recentIds, markViewed,
-      getBusiness, ownedBusinesses, updateBusiness, addBusiness,
+      getBusiness, ownedBusinesses, updateBusiness, addBusiness, claimBusiness,
       replyToReview, addReview,
     ],
   );

@@ -272,6 +272,48 @@ export async function updateBusinessRemote(dbId: string, patch: Record<string, u
   if (error) throw error;
 }
 
+/**
+ * Lists a new business owned by whoever is signed in. Returns its slug.
+ *
+ * The slug is generated in the database rather than here: it has to be unique
+ * across every listing, and only the database can check that without a race.
+ */
+export async function createBusinessRemote(input: {
+  name: string;
+  category: CategoryId;
+  tagline: string;
+  address: string;
+  neighbourhood: string;
+  phone: string;
+  lat: number;
+  lng: number;
+}): Promise<string> {
+  const { data, error } = await supabase.rpc('create_business', {
+    in_name: input.name,
+    in_category: input.category,
+    in_tagline: input.tagline,
+    in_address: input.address,
+    in_neighbourhood: input.neighbourhood,
+    in_phone: input.phone,
+    in_lat: input.lat,
+    in_lng: input.lng,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+/**
+ * Takes over a listing that nobody manages yet.
+ *
+ * The database refuses this when the listing already belongs to somebody
+ * else, and leaves `verified` false either way — a claim is a request to
+ * manage, not proof of ownership.
+ */
+export async function claimBusinessRemote(slug: string): Promise<void> {
+  const { error } = await supabase.rpc('claim_business', { in_slug: slug });
+  if (error) throw error;
+}
+
 /** Records that somebody looked at, called, or asked directions to a listing. */
 export async function recordEvent(
   businessDbId: string,

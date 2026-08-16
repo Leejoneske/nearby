@@ -1,12 +1,19 @@
 /**
- * Add or claim a listing.
+ * Add a listing, or claim one that is already here.
  *
- * Three steps and a confirmation, because asking for everything on one screen
- * is how a small-business owner on a phone gives up halfway. Each step
- * validates only its own fields, so Continue is never a mystery.
+ * Two modes in one screen. With no `business` param it is the three step
+ * form: asking for everything at once is how a small-business owner on a
+ * phone gives up halfway, and each step validates only its own fields so
+ * Continue is never a mystery. With `?business=<id>` it is a single confirm
+ * step that takes over an existing listing instead of creating a second copy
+ * of it — which is what happened when this screen only knew how to create.
+ *
+ * Both need a signed-in account, because both write a row that belongs to
+ * somebody. The database enforces that; this screen just asks first rather
+ * than letting someone fill in three steps and then fail.
  */
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -24,23 +31,26 @@ import { Button } from '../../components/Button';
 import { Field } from '../../components/Field';
 import { Card } from '../../components/primitives';
 import { CATEGORIES, CATEGORY_TONES, categoryOf } from '../../data/categories';
-import { DEFAULT_ORIGIN } from '../../data/location';
-import type { Business, CategoryId } from '../../data/types';
+import type { CategoryId } from '../../data/types';
 import { useStore } from '../../lib/store';
 import { colors, radii, spacing, tones, typography } from '../../theme/tokens';
 
-type Verification = 'phone' | 'postcard' | 'email';
-
-const STEPS = ['Business', 'Location', 'Verify'] as const;
+const STEPS = ['Business', 'Location', 'Contact'] as const;
 
 export default function ClaimScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
-  const { addBusiness } = useStore();
+  const { business: claimId } = useLocalSearchParams<{ business?: string }>();
+  const { addBusiness, claimBusiness, getBusiness, session } = useStore();
+
+  const claiming = getBusiness(claimId ?? '');
 
   const [step, setStep] = useState(0);
   const [done, setDone] = useState(false);
+  const [doneName, setDoneName] = useState('');
   const [categoryOpen, setCategoryOpen] = useState(false);
+  const [working, setWorking] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
 
   const [name, setName] = useState('');
   const [categoryId, setCategoryId] = useState<CategoryId | null>(null);
@@ -48,7 +58,6 @@ export default function ClaimScreen() {
   const [address, setAddress] = useState('');
   const [neighbourhood, setNeighbourhood] = useState('');
   const [phone, setPhone] = useState('');
-  const [verification, setVerification] = useState<Verification>('phone');
 
   const stepValid = [
     name.trim().length > 1 && categoryId !== null,
@@ -56,34 +65,44 @@ export default function ClaimScreen() {
     phone.trim().length >= 9,
   ][step];
 
-  const finish = () => {
-    const created: Business = {
-      id: `listing-${Date.now()}`,
-      name: name.trim(),
-      categoryId: categoryId ?? 'services',
-      tagline: tagline.trim() || categoryOf(categoryId ?? 'services').label,
-      description: '',
-      rating: 0,
-      reviewCount: 0,
-      priceLevel: 2,
-      priceFrom: 0,
-      priceTo: 0,
-      address: address.trim(),
-      neighbourhood: neighbourhood.trim(),
-      phone: phone.trim(),
-      // Until the owner drops a pin, the listing sits at the city centre.
-      lat: DEFAULT_ORIGIN.lat,
-      lng: DEFAULT_ORIGIN.lng,
-      distanceM: 0,
-      photos: [],
-      hours: [null, null, null, null, null, null, null],
-      amenities: [],
-      reviews: [],
-      ownedByViewer: true,
-      verified: false,
-    };
-    addBusiness(created);
-    setDone(true);
+  const signedOut = session.status === 'signedOut';
+
+  const finish = async () => {
+    if (working) return;
+    setFailure(null);
+
+    if (signedOut) {
+      router.push('/(auth)/sign-in');
+      return;
+    }
+
+    setWorking(true);
+    try {
+      if (claiming) {
+        await claimBusiness(claiming.id);
+        setDoneName(claiming.name);
+      } else {
+        await addBusiness({
+          name: name.trim(),
+          categoryId: categoryId ?? 'services',
+          tagline: tagline.trim() || categoryOf(categoryId ?? 'services').label,
+          address: address.trim(),
+          neighbourhood: neighbourhood.trim(),
+          phone: phone.trim(),
+        });
+        setDoneName(name.trim());
+      }
+      setDone(true);
+    } catch (e) {
+      console.warn('[claim] the write was refused', e);
+      setFailure(
+        claiming
+          ? 'We could not add that to your account. Somebody may already manage it.'
+          : 'We could not save that listing just now. Please try again.',
+      );
+    } finally {
+      setWorking(false);
+    }
   };
 
   if (done) {
@@ -92,10 +111,12 @@ export default function ClaimScreen() {
         <View style={styles.doneIcon}>
           <Ionicons name="checkmark" size={40} color={colors.textOnAccent} />
         </View>
-        <Text style={styles.doneTitle}>{name.trim()} is listed</Text>
+        <Text style={styles.doneTitle}>
+          {claiming ? `${doneName} is yours to manage` : `${doneName} is listed`}
+        </Text>
         <Text style={styles.doneBody}>
-          We have sent a verification code to {phone.trim()}. Once you confirm it, your listing
-          goes live in search and on the map.
+          It is live in search and on the map now. We will be in touch to confirm the
+          business is yours — until then it shows as unverified.
         </Text>
         <Card style={styles.doneCard}>
           <Text style={styles.doneNext}>What to do next</Text>
@@ -106,6 +127,59 @@ export default function ClaimScreen() {
         <View style={styles.doneActions}>
           <Button label="Go to my dashboard" onPress={() => router.replace('/(tabs)/profile')} />
           <Button label="Not now" variant="ghost" size="md" onPress={() => router.back()} />
+        </View>
+      </View>
+    );
+  }
+
+  if (claiming) {
+    return (
+      <View style={styles.screen}>
+        <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
+          <View style={styles.headerRow}>
+            <Pressable
+              onPress={() => router.back()}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              style={styles.iconButton}
+            >
+              <Ionicons name="close" size={22} color={colors.textPrimary} />
+            </Pressable>
+            <Text style={styles.headerTitle}>Claim this listing</Text>
+            <View style={styles.iconButton} />
+          </View>
+        </View>
+
+        <View style={styles.claimBody}>
+          <Text style={styles.stepTitle}>{claiming.name}</Text>
+          <Text style={styles.stepBody}>
+            {claiming.address}
+            {claiming.neighbourhood ? `, ${claiming.neighbourhood}` : ''}
+          </Text>
+
+          <Card style={styles.doneCard}>
+            <Text style={styles.doneNext}>What claiming gets you</Text>
+            <NextStep icon="create-outline" text="Edit the details, hours and photos" />
+            <NextStep icon="chatbubbles-outline" text="Reply to reviews as the owner" />
+            <NextStep icon="eye-outline" text="See how many people are finding you" last />
+          </Card>
+
+          <Text style={styles.claimNote}>
+            {signedOut
+              ? 'Sign in first so we know who to give it to.'
+              : 'We will be in touch to confirm the business is yours.'}
+          </Text>
+
+          {failure ? <Text style={styles.failure}>{failure}</Text> : null}
+        </View>
+
+        <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
+          <Button
+            label={signedOut ? 'Sign in to claim it' : 'Claim this listing'}
+            loading={working}
+            onPress={finish}
+          />
         </View>
       </View>
     );
@@ -205,9 +279,10 @@ export default function ClaimScreen() {
 
         {step === 2 ? (
           <View style={styles.group}>
-            <Text style={styles.stepTitle}>Let&apos;s confirm it is yours</Text>
+            <Text style={styles.stepTitle}>How can people reach you?</Text>
             <Text style={styles.stepBody}>
-              Verification stops someone else editing your listing. Pick whichever is easiest.
+              This is the number on your listing, and the one we will use to confirm the
+              business is yours.
             </Text>
             <Field
               label="Business phone"
@@ -216,39 +291,28 @@ export default function ClaimScreen() {
               keyboardType="phone-pad"
               placeholder="+254 7.. ... ..."
             />
-
-            <View style={styles.methods}>
-              <Method
-                icon="call-outline"
-                title="Text message"
-                detail="A code arrives in under a minute"
-                selected={verification === 'phone'}
-                onPress={() => setVerification('phone')}
-              />
-              <Method
-                icon="mail-outline"
-                title="Email"
-                detail="Sent to the address on your account"
-                selected={verification === 'email'}
-                onPress={() => setVerification('email')}
-              />
-              <Method
-                icon="home-outline"
-                title="Postcard"
-                detail="Mailed to the business address, 5–7 days"
-                selected={verification === 'postcard'}
-                onPress={() => setVerification('postcard')}
-              />
-            </View>
+            <Text style={styles.claimNote}>
+              {signedOut
+                ? 'Sign in on the next step so the listing is saved to your account.'
+                : 'Your listing goes live straight away, and shows as unverified until we confirm it.'}
+            </Text>
+            {failure ? <Text style={styles.failure}>{failure}</Text> : null}
           </View>
         ) : null}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
         <Button
-          label={step === STEPS.length - 1 ? 'Create listing' : 'Continue'}
+          label={
+            step < STEPS.length - 1
+              ? 'Continue'
+              : signedOut
+                ? 'Sign in to finish'
+                : 'Create listing'
+          }
           disabled={!stepValid}
-          onPress={() => (step === STEPS.length - 1 ? finish() : setStep(step + 1))}
+          loading={working}
+          onPress={() => (step === STEPS.length - 1 ? void finish() : setStep(step + 1))}
         />
       </View>
 
@@ -297,46 +361,6 @@ export default function ClaimScreen() {
   );
 }
 
-function Method({
-  icon,
-  title,
-  detail,
-  selected,
-  onPress,
-}: {
-  icon: string;
-  title: string;
-  detail: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="radio"
-      accessibilityState={{ selected }}
-      style={[styles.method, selected && styles.methodSelected]}
-    >
-      <View style={[styles.methodIcon, selected && styles.methodIconSelected]}>
-        <Ionicons
-          name={icon as never}
-          size={18}
-          color={selected ? colors.textOnAccent : colors.accent}
-        />
-      </View>
-      <View style={styles.methodText}>
-        <Text style={styles.methodTitle}>{title}</Text>
-        <Text style={styles.methodDetail}>{detail}</Text>
-      </View>
-      <Ionicons
-        name={selected ? 'radio-button-on' : 'radio-button-off'}
-        size={20}
-        color={selected ? colors.accent : colors.borderStrong}
-      />
-    </Pressable>
-  );
-}
-
 function NextStep({ icon, text, last }: { icon: string; text: string; last?: boolean }) {
   return (
     <View style={[styles.nextStep, !last && styles.nextStepDivider]}>
@@ -373,30 +397,9 @@ const styles = StyleSheet.create({
   stepTitle: { ...typography.title, color: colors.textPrimary },
   stepBody: { ...typography.body, color: colors.textSecondary, marginTop: -spacing.sm },
 
-  methods: { gap: spacing.md, marginTop: spacing.sm },
-  method: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.lg,
-    borderRadius: radii.xl,
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-  },
-  methodSelected: { borderColor: colors.accent },
-  methodIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: radii.md,
-    backgroundColor: colors.accentSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  methodIconSelected: { backgroundColor: colors.accent },
-  methodText: { flex: 1, gap: 2 },
-  methodTitle: { ...typography.bodyStrong, color: colors.textPrimary },
-  methodDetail: { ...typography.meta, color: colors.textSecondary },
+  claimBody: { flex: 1, paddingHorizontal: spacing.screen, gap: spacing.md },
+  claimNote: { ...typography.meta, color: colors.textSecondary },
+  failure: { ...typography.meta, color: colors.danger },
 
   footer: {
     position: 'absolute',

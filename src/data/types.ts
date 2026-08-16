@@ -104,9 +104,29 @@ export type AppNotification = {
  * checked yet". Against a real backend that check is a network round trip,
  * and flashing a signed-out screen during it is a flicker every user notices.
  */
+/**
+ * What somebody fills in to list a business.
+ *
+ * Deliberately much smaller than `Business`: everything else — the id, the
+ * rating, the review count, the verified flag — is the database's to decide,
+ * and a form that could set them would be a form that could lie.
+ */
+export type NewBusiness = {
+  name: string;
+  categoryId: CategoryId;
+  tagline: string;
+  address: string;
+  neighbourhood: string;
+  phone: string;
+  /** Where the pin goes. Falls back to wherever the device is. */
+  lat?: number;
+  lng?: number;
+};
+
 export type Session = {
   status: 'loading' | 'signedIn' | 'signedOut';
-  phone: string | null;
+  /** The address the sign-in code was sent to. Null while signed out. */
+  email: string | null;
 };
 
 export type SortKey = 'relevance' | 'rating' | 'distance' | 'priceLow';

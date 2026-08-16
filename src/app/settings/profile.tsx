@@ -19,33 +19,23 @@ import { useScreenInsets } from '../../lib/insets';
 import { useStore } from '../../lib/store';
 import { colors, radii, spacing, typography } from '../../theme/tokens';
 
-/** Accepts an empty address; a profile does not have to carry one. */
-export function isValidEmail(value: string): boolean {
-  const trimmed = value.trim();
-  if (!trimmed) return true;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(trimmed);
-}
-
 export default function EditProfileScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
   const { viewer, updateViewer, session } = useStore();
 
   const [name, setName] = useState(viewer.name);
-  const [email, setEmail] = useState(viewer.email);
   const [area, setArea] = useState(viewer.area);
   const [saved, setSaved] = useState(false);
 
   const nameError = name.trim().length < 2 ? 'Tell us what to call you' : undefined;
-  const emailError = isValidEmail(email) ? undefined : 'That email does not look right';
-  const canSave = !nameError && !emailError;
+  const canSave = !nameError;
 
   const save = () => {
     if (!canSave) return;
     updateViewer({
       name: name.trim(),
       initials: initialsOf(name),
-      email: email.trim(),
       area: area.trim(),
     });
     setSaved(true);
@@ -96,14 +86,6 @@ export default function EditProfileScreen() {
             hint="Shown on any review you write."
           />
           <Field
-            label="Email"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            placeholder="you@example.com"
-            error={emailError}
-          />
-          <Field
             label="Where you are"
             value={area}
             onChangeText={setArea}
@@ -111,8 +93,10 @@ export default function EditProfileScreen() {
             hint="Used to sort results by how close they are."
           />
           <View style={styles.readonly}>
-            <Text style={styles.readonlyLabel}>Phone</Text>
-            <Text style={styles.readonlyValue}>{session.phone ?? 'Not set'}</Text>
+            <Text style={styles.readonlyLabel}>Email</Text>
+            <Text style={styles.readonlyValue}>
+              {session.email ?? 'Not signed in'}
+            </Text>
             <Text style={styles.readonlyHint}>
               This is how you sign in. Get in touch if it needs to change.
             </Text>

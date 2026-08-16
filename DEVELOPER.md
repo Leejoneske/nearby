@@ -177,6 +177,58 @@ step.
 Both are the same lesson: if a value can be computed from what you already
 have, computing it is cheaper and safer than storing a second copy.
 
+## A write that needs an account has to say so
+
+Saving a place and posting a review both used to work perfectly while signed
+out: the heart filled in, the review appeared, and the row was never written.
+The person finds out on next launch, when it is gone and nothing explains why.
+
+`toggleSaved` and `addReview` now send you to sign-in instead of pretending.
+The rule generalises: if a write cannot land, do not move the UI as though it
+did. Optimistic updates are for writes that will almost certainly succeed and
+can be rolled back — not for writes that are guaranteed to fail.
+
+The same reasoning killed the old claim flow's verification step, which
+offered a text message, an email and a postcard, none of which existed, and
+then said "we have sent a verification code" to a number nobody had messaged.
+An honest "we will be in touch to confirm" is a smaller promise and a true
+one.
+
+## Claiming is not the same as creating
+
+A listing already on the map that somebody says is theirs gets **claimed** —
+`/owner/claim?business=<id>`, which calls `claim_business()` and sets
+`owner_id`. Sending that person to the create form instead produces a second
+row for the same shop, which is what the button used to do.
+
+`claim_business()` takes ownership only when nobody owns it, locks the row
+while it checks, and leaves `verified` false. Claiming is a request to manage
+a listing, not proof it is yours, and until there is something that reviews
+those requests, `claimed_at`/`claimed_by` is the record that it happened.
+
+## The map has two implementations, and one is not a failure
+
+Android's Maps SDK needs an API key. Given a missing or wrong one it does not
+raise an error — it draws a blank grey rectangle with a watermark in the
+corner, which looks precisely like a broken app. A `REPLACE_WITH_...`
+placeholder sat in `app.json` doing exactly that.
+
+The key now comes from `GOOGLE_MAPS_API_KEY` through `app.config.js`, and
+`hasRealMap()` decides what to render. With no key, and on web, the app draws
+`SchematicMap` instead: real projection, real pin positions, invented roads.
+A build without the key has a worse map, not a broken one.
+
+If you add a key, restrict it to the package name and signing certificate.
+Anyone can pull an unrestricted key back out of the APK.
+
+## Directions stay in the app
+
+`openDirections` leaves for the phone's map app, and that is a big thing to do
+to somebody who asked a small question. The Directions button opens our own
+map focused on the listing instead. Handing off to Google or Apple Maps is
+still there, as "Open in Maps" on the location card, because turn-by-turn
+navigation is a real want and not one we serve.
+
 ## Lists do not carry everything
 
 `businesses_nearby()` returns listings without their reviews, because

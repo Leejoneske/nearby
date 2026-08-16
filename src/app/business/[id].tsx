@@ -6,6 +6,7 @@ import { useScreenInsets } from '../../lib/insets';
 
 import { Button } from '../../components/Button';
 import { MapCanvas } from '../../components/MapCanvas';
+import { OwnerCta } from '../../components/OwnerCta';
 import { Photo } from '../../components/Photo';
 import { Stars } from '../../components/Stars';
 import { Avatar, Card, EmptyState, Pill } from '../../components/primitives';
@@ -68,6 +69,17 @@ export default function BusinessScreen() {
       </View>
     );
   }
+
+  /*
+   * Directions stay inside the app. We already draw a map, and being thrown
+   * into a different app to answer "where is this" loses the listing you
+   * were reading. Turn-by-turn navigation is a separate ask, and it is on
+   * the map card as "Open in Maps" for the times somebody actually wants it.
+   */
+  const showOnMap = () => {
+    if (business.dbId) recordEvent(business.dbId, 'directions');
+    router.push({ pathname: '/(tabs)/map', params: { focus: business.id } });
+  };
 
   const state = openState(business.hours, now);
   const saved = isSaved(business.id);
@@ -166,10 +178,7 @@ export default function BusinessScreen() {
             <Action
               icon="navigate"
               label="Directions"
-              onPress={() => {
-                if (business.dbId) recordEvent(business.dbId, 'directions');
-                openDirections(business.lat, business.lng, business.name);
-              }}
+              onPress={() => showOnMap()}
             />
             <Action
               icon="globe-outline"
@@ -232,7 +241,12 @@ export default function BusinessScreen() {
 
           {/* Location */}
           <Section title="Location">
-            <View style={styles.mapCard}>
+            <Pressable
+              onPress={showOnMap}
+              accessibilityRole="button"
+              accessibilityLabel={`Show ${business.name} on the map`}
+              style={styles.mapCard}
+            >
               <MapCanvas
                 region={{
                   latitude: business.lat,
@@ -252,8 +266,22 @@ export default function BusinessScreen() {
                   },
                 ]}
               />
+              {/* The canvas swallows touches, so the tap target sits over it. */}
+              <View style={styles.mapVeil} pointerEvents="none" />
+            </Pressable>
+            <View style={styles.mapFooter}>
+              <Text style={styles.mapAddress}>{business.address}</Text>
+              <Pressable
+                onPress={() => {
+                  if (business.dbId) recordEvent(business.dbId, 'directions');
+                  openDirections(business.lat, business.lng, business.name);
+                }}
+                hitSlop={8}
+                accessibilityRole="button"
+              >
+                <Text style={styles.mapLink}>Open in Maps</Text>
+              </Pressable>
             </View>
-            <Text style={styles.mapAddress}>{business.address}</Text>
           </Section>
 
           {/* Reviews */}
@@ -325,20 +353,20 @@ export default function BusinessScreen() {
               />
             </View>
           ) : (
-            <Pressable
-              onPress={() => router.push('/owner/claim')}
-              accessibilityRole="button"
-              style={({ pressed }) => [styles.claimCard, pressed && { opacity: 0.9 }]}
-            >
-              <Ionicons name="business-outline" size={20} color={colors.textPrimary} />
-              <View style={styles.claimCopy}>
-                <Text style={styles.claimTitle}>Is this your business?</Text>
-                <Text style={styles.claimBody}>
-                  Claim it to edit the details, reply to reviews and see who is finding you.
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
-            </Pressable>
+            /*
+             * Claims the listing that is open, rather than opening an empty
+             * form — pointing this at the create flow is how you end up with
+             * two rows for the same shop.
+             */
+            <View style={styles.claimWrap}>
+              <OwnerCta
+                title="Is this your business?"
+                body="Claim it to edit the details, reply to reviews and see who is finding you."
+                onPress={() =>
+                  router.push({ pathname: '/owner/claim', params: { business: business.id } })
+                }
+              />
+            </View>
           )}
         </View>
       </ScrollView>
@@ -357,7 +385,7 @@ export default function BusinessScreen() {
           size="md"
           fullWidth={false}
           style={styles.stickyButton}
-          onPress={() => openDirections(business.lat, business.lng, business.name)}
+          onPress={showOnMap}
         />
       </View>
     </View>
@@ -538,6 +566,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...shadows.card,
   },
+  mapVeil: { ...absoluteFill },
+  mapFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  mapLink: { ...typography.metaStrong, color: colors.accent },
   mapAddress: { ...typography.meta, color: colors.textSecondary },
 
   summaryCard: { flexDirection: 'row', gap: spacing.xl, alignItems: 'center' },
@@ -574,21 +610,7 @@ const styles = StyleSheet.create({
   replyBody: { ...typography.meta, color: colors.textSecondary },
 
   claimBlock: { paddingHorizontal: spacing.screen, marginBottom: spacing.xxl },
-  claimCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginHorizontal: spacing.screen,
-    marginBottom: spacing.xxl,
-    backgroundColor: colors.surface,
-    borderRadius: radii.xl,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  claimCopy: { flex: 1, gap: 2 },
-  claimTitle: { ...typography.bodyStrong, color: colors.textPrimary },
-  claimBody: { ...typography.meta, color: colors.textSecondary },
+  claimWrap: { marginBottom: spacing.xxl },
 
   stickyBar: {
     position: 'absolute',
