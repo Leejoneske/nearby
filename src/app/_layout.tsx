@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { hasSeenIntro } from '../lib/firstRun';
+import { UpdateGate } from '../components/UpdateGate';
 import { StoreProvider } from '../lib/store';
 import { colors } from '../theme/tokens';
 
@@ -75,6 +76,8 @@ export default function RootLayout() {
               options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
             />
           </Stack>
+          {/* Sits over everything, so a prompt is not tied to one screen. */}
+          <UpdateGate />
         </StoreProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

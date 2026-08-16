@@ -296,6 +296,50 @@ can fill is worse than not having built it.
 Reasons are a fixed list, not a text box. A queue of prose takes longer to
 triage than it takes to write.
 
+## Updating without a store
+
+Three ways a copy of this app can exist, and each updates differently. Which
+one a build is comes from `EXPO_PUBLIC_DISTRIBUTION` at build time, not from
+sniffing at runtime — Android does expose the installing package, but not
+through any Expo API, and guessing wrong means offering somebody a download
+their store will refuse to install over.
+
+- **sideload** (the default, and what the APK workflow produces) fetches the
+  next build from the published release and hands it to Android's installer.
+- **play** never prompts. Play already updates apps by itself, and Play's own
+  in-app update flow needs a native module we do not have.
+- **appStore** asks Apple's public lookup what version is live and opens the
+  listing. iOS has no in-app install path at all.
+
+**Android's install confirmation cannot be skipped, and should not be.** No
+app may install another without the person agreeing. What we remove is
+everything before it: no browser, no downloads folder, no hunting for a file.
+
+The prompt is never mandatory. Somebody who opened the app to find a plumber
+has not agreed to a 45 MB download first, and a wall they cannot dismiss is
+how an app gets deleted. Declining records the version, so the next release
+asks again and the same one does not.
+
+The decisions — is this newer, should we look yet, was this one turned down —
+are pure functions in `src/lib/updates.ts` with no network in sight, which is
+why they have thirty-one tests and the service has none.
+
+## Skeletons are for the first load, and only the essentials
+
+`src/components/Skeleton.tsx`. Two rules, both easy to get wrong:
+
+- **Only when there is genuinely nothing to show.** A refresh keeps whatever
+  is on screen. Replacing real listings with grey boxes because a background
+  reload started is a downgrade, not a loading state — hence
+  `loading && businesses.length === 0` rather than `loading`.
+- **Only where content is certain to arrive.** A skeleton is a promise that
+  something is coming. Putting one over a section that is empty half the time
+  anyway — today's offers, say — promises something that was never on its way.
+
+The same reasoning applies to any text derived from data that has not landed.
+"0 businesses open near you" is a false statement during a load, not a neutral
+one, so the hero says it is still looking.
+
 ## Tests
 
 `npm test`. Prefer tests that need no renderer and no network: `src/lib/` is

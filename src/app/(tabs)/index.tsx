@@ -7,6 +7,7 @@ import { useScreenInsets } from '../../lib/insets';
 import { BusinessCard } from '../../components/BusinessCard';
 import { CategoryTile } from '../../components/Chip';
 import { OwnerCta } from '../../components/OwnerCta';
+import { SkeletonRail } from '../../components/Skeleton';
 import { SearchField } from '../../components/SearchField';
 import { Avatar, SectionHeader } from '../../components/primitives';
 import { CATEGORIES, CATEGORY_TONES } from '../../data/categories';
@@ -30,7 +31,14 @@ import {
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
-  const { businesses, viewer, isSaved, toggleSaved, unreadCount } = useStore();
+  const { businesses, loading, viewer, isSaved, toggleSaved, unreadCount } = useStore();
+
+  /*
+   * Only the very first load. A refresh keeps whatever is already on screen —
+   * swapping real listings for grey boxes because a background reload started
+   * is a downgrade, not a loading state.
+   */
+  const firstLoad = loading && businesses.length === 0;
   const now = useMemo(() => new Date(), []);
 
   const popular = useMemo(
@@ -109,7 +117,9 @@ export default function HomeScreen() {
             <View style={styles.heroCopy}>
               <Text style={styles.heroTitle}>Find the right place</Text>
               <Text style={styles.heroSubtitle}>
-                {openCount} businesses open near you right now
+                {firstLoad
+                  ? 'Looking for places near you'
+                  : `${openCount} businesses open near you right now`}
               </Text>
             </View>
             <View style={styles.heroGlyph}>
@@ -178,21 +188,25 @@ export default function HomeScreen() {
           actionLabel="View all"
           onAction={() => goToSearch({ sort: 'rating' })}
         />
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.rail}
-        >
-          {popular.map((business) => (
-            <BusinessCard
-              key={business.id}
-              business={business}
-              saved={isSaved(business.id)}
-              onToggleSave={() => toggleSaved(business.id)}
-              onPress={() => router.push(`/business/${business.id}`)}
-            />
-          ))}
-        </ScrollView>
+        {firstLoad ? (
+          <SkeletonRail />
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.rail}
+          >
+            {popular.map((business) => (
+              <BusinessCard
+                key={business.id}
+                business={business}
+                saved={isSaved(business.id)}
+                onToggleSave={() => toggleSaved(business.id)}
+                onPress={() => router.push(`/business/${business.id}`)}
+              />
+            ))}
+          </ScrollView>
+        )}
 
         {/* Offers */}
         {offers.length > 0 ? (
@@ -238,21 +252,25 @@ export default function HomeScreen() {
           actionLabel="Open map"
           onAction={() => router.push('/(tabs)/map')}
         />
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.rail}
-        >
-          {nearby.map((business) => (
-            <BusinessCard
-              key={business.id}
-              business={business}
-              saved={isSaved(business.id)}
-              onToggleSave={() => toggleSaved(business.id)}
-              onPress={() => router.push(`/business/${business.id}`)}
-            />
-          ))}
-        </ScrollView>
+        {firstLoad ? (
+          <SkeletonRail />
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.rail}
+          >
+            {nearby.map((business) => (
+              <BusinessCard
+                key={business.id}
+                business={business}
+                saved={isSaved(business.id)}
+                onToggleSave={() => toggleSaved(business.id)}
+                onPress={() => router.push(`/business/${business.id}`)}
+              />
+            ))}
+          </ScrollView>
+        )}
 
         {/* Owner call to action */}
         <OwnerCta

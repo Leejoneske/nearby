@@ -8,6 +8,7 @@ import { BusinessRow } from '../components/BusinessRow';
 import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
 import { SearchField } from '../components/SearchField';
+import { SkeletonList } from '../components/Skeleton';
 import { EmptyState } from '../components/primitives';
 import { CATEGORIES, CATEGORY_TONES, categoryOf } from '../data/categories';
 import { DEFAULT_FILTERS, type CategoryId, type Filters, type SortKey } from '../data/types';
@@ -23,7 +24,7 @@ const RADIUS_OPTIONS = [500, 1000, 2000, 5000, 10000];
 export default function SearchScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
-  const { businesses, isSaved, toggleSaved, markViewed } = useStore();
+  const { businesses, loading, isSaved, toggleSaved, markViewed } = useStore();
   const params = useLocalSearchParams<{
     q?: string;
     category?: string;
@@ -196,6 +197,13 @@ export default function SearchScreen() {
           />
         )}
         ListEmptyComponent={
+          // "Nothing matches" is a claim about the results, and we cannot
+          // make it before they arrive.
+          loading && businesses.length === 0 ? (
+            <View style={styles.emptyWrap}>
+              <SkeletonList />
+            </View>
+          ) : (
           <View style={styles.emptyWrap}>
             <EmptyState
               icon="search"
@@ -213,6 +221,7 @@ export default function SearchScreen() {
               </View>
             ) : null}
           </View>
+          )
         }
       />
 
