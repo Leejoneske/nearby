@@ -31,9 +31,31 @@ export function Reports() {
     }
   }, [state]);
 
+  /*
+   * The load runs inside the effect rather than being called out of it, so
+   * nothing sets state synchronously as the effect body executes — which is
+   * what turns one render into a cascade of them.
+   */
   useEffect(() => {
-    void load();
-  }, [load]);
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const data = await fetchReports(state);
+        if (!alive) return;
+        setRows(data);
+        setError(null);
+      } catch (e) {
+        console.warn('[reports]', e);
+        if (alive) setError('We could not load this.');
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [state]);
 
   const resolve = async (id: string, next: 'actioned' | 'dismissed') => {
     setBusyId(id);

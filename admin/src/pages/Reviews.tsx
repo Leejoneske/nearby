@@ -31,9 +31,31 @@ export function Reviews() {
     }
   }, [unansweredOnly]);
 
+  /*
+   * The load runs inside the effect rather than being called out of it, so
+   * nothing sets state synchronously as the effect body executes — which is
+   * what turns one render into a cascade of them.
+   */
   useEffect(() => {
-    void load();
-  }, [load]);
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const data = await fetchReviews({ unansweredOnly });
+        if (!alive) return;
+        setRows(data);
+        setError(null);
+      } catch (e) {
+        console.warn('[reviews]', e);
+        if (alive) setError('We could not load this.');
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [unansweredOnly]);
 
   const remove = async (row: AdminReview) => {
     const reason = window.prompt(

@@ -5,7 +5,16 @@ const expoConfig = require('eslint-config-expo/flat');
 module.exports = [
   ...expoConfig,
   {
-    ignores: ['dist/*', 'android/*', 'ios/*', 'landing/*', 'node_modules/*'],
+    // .expo is generated on every run, and landing/admin is build output.
+    ignores: [
+      'dist/*',
+      'android/*',
+      'ios/*',
+      'landing/*',
+      'node_modules/*',
+      'admin/node_modules/*',
+      '.expo/*',
+    ],
   },
   {
     // Build-time scripts run in Node, not on a device, so they get Node's

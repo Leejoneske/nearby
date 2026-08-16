@@ -61,17 +61,21 @@ export function App() {
     };
   }, []);
 
-  // Being signed in and being an admin are different questions, and the
-  // second one is answered by the database rather than by anything here.
+  /*
+   * Being signed in and being an admin are different questions, and the
+   * second one is answered by the database rather than by anything here.
+   *
+   * The clear-on-signed-out happens inside the async body with the rest of
+   * it, so no branch of this effect sets state as it runs — a synchronous
+   * setState in an effect body is a second render before the first has been
+   * painted.
+   */
   useEffect(() => {
-    if (!session) {
-      setAdmin(null);
-      return;
-    }
     let alive = true;
-    void amIAdmin().then((yes) => {
+    (async () => {
+      const yes = session ? await amIAdmin() : null;
       if (alive) setAdmin(yes);
-    });
+    })();
     return () => {
       alive = false;
     };
