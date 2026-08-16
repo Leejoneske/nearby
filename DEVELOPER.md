@@ -376,6 +376,47 @@ smaller".
 
 Materialise to a buffer between steps whenever the order matters.
 
+## No dashes in anything a customer reads
+
+No em dash, no en dash, anywhere in a string literal or JSX text under
+`src/app`, `src/components` or `src/data`. Rewrite the sentence instead: a
+full stop, a comma, a colon or the word "because" will do the job, and the
+result is usually shorter.
+
+```ts
+// Good
+'Optional. One line under your name in search results.'
+'No photos yet, add some'
+'KSh 350 to 1,200'
+
+// Bad
+'Optional — one line under your name in search results'
+'No photos yet — add some'
+'KSh 350 – 1,200'
+```
+
+Ranges are included. An en dash between two numbers is ordinary typography,
+but "to" is not worse and the rule stays simple enough that nobody has to
+think about it.
+
+**Comments and commit messages are exempt.** The rule is about what a
+customer reads, not what a developer reads.
+
+Enforced by `src/lib/__tests__/copy.test.ts`, which strips comments with a
+small scanner rather than a regex, because `'https://x'` contains `//` and is
+not a comment.
+
+## Legal copy has to describe the app that exists
+
+`src/data/legal.ts`. It had drifted twice over: still telling people they sign
+in with a phone number months after that became an email address, and saying
+nothing at all about the view and call counts an owner can see, which is
+collection that a privacy policy has to disclose.
+
+When you change what the app collects, who can see it, or what we do about a
+report, that file changes in the same commit. A policy describing an older
+version of the product is worse than none, because somebody relied on it.
+
 ## Tests
 
 `npm test`. Prefer tests that need no renderer and no network: `src/lib/` is

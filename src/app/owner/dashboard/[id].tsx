@@ -192,7 +192,7 @@ export default function OwnerDashboard() {
               detail={
                 business.photos.length
                   ? `${business.photos.length} uploaded`
-                  : 'No photos yet — add some'
+                  : 'No photos yet, add some'
               }
               onPress={() => router.push(`/owner/edit/${business.id}`)}
             />

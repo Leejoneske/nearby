@@ -53,22 +53,62 @@ export function describePlace(
   };
 }
 
+/*
+ * Nothing here is allowed to hang.
+ *
+ * `ready` is what releases the first load, so a location call that never
+ * settles leaves the whole app on its loading skeletons for ever. That is not
+ * hypothetical: a headless browser never answers the permission prompt at
+ * all, and a phone with a confused location service can do the same. Both now
+ * fall through to the city after a few seconds, which is exactly the state a
+ * refusal produces and which the app already handles.
+ */
+const PERMISSION_TIMEOUT_MS = 8_000;
+const FIX_TIMEOUT_MS = 12_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value: T) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+    const timer = setTimeout(() => finish(fallback), ms);
+    promise.then(finish, () => finish(fallback));
+  });
+}
+
 export function useOrigin(): OriginState & { refresh: () => void } {
   const [state, setState] = useState<OriginState>(FALLBACK);
   const asked = useRef(false);
 
   const locate = useCallback(async () => {
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
+      // null stands for "never answered", which is treated the same as a no.
+      const permission = await withTimeout(
+        Location.requestForegroundPermissionsAsync(),
+        PERMISSION_TIMEOUT_MS,
+        null,
+      );
+      const status = permission?.status;
       if (status !== Location.PermissionStatus.GRANTED) {
         // A refusal is an answer, not a failure. Keep the fallback.
         setState((prev) => ({ ...prev, ready: true }));
         return;
       }
 
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
+      const position = await withTimeout(
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+        FIX_TIMEOUT_MS,
+        null,
+      );
+      if (!position) {
+        // A fix that never arrives is the same as no fix.
+        setState((prev) => ({ ...prev, ready: true }));
+        return;
+      }
       const origin = {
         lat: position.coords.latitude,
         lng: position.coords.longitude,

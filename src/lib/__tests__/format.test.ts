@@ -40,7 +40,7 @@ describe('formatPriceLevel', () => {
 describe('money', () => {
   it('groups thousands', () => {
     expect(formatMoney(150000)).toBe('KSh 150,000');
-    expect(formatPriceRange(350, 1200)).toBe('KSh 350 – 1,200');
+    expect(formatPriceRange(350, 1200)).toBe('KSh 350 to 1,200');
   });
 });
 

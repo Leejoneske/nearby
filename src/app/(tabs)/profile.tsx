@@ -22,8 +22,19 @@ import {
 export default function ProfileScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
-  const { viewer, savedIds, recentIds, ownedBusinesses, signOut, unreadCount } =
+  const { viewer, savedIds, recentIds, ownedBusinesses, signOut, unreadCount, session } =
     useStore();
+
+  const signedOut = session.status === 'signedOut';
+
+  /*
+   * Editing a guest and listing as a guest both used to work right up until
+   * the write, which then went nowhere. Both need an account, so both ask for
+   * one at the point somebody reaches for them rather than three screens
+   * later.
+   */
+  const needsAccount = (destination: '/settings/profile' | '/owner/claim') =>
+    router.push(signedOut ? '/(auth)/sign-in' : destination);
 
   return (
     <View style={styles.screen}>
@@ -42,9 +53,9 @@ export default function ProfileScreen() {
             <Text style={styles.email}>{viewer.email}</Text>
           </View>
           <Pressable
-            onPress={() => router.push('/settings/profile')}
+            onPress={() => needsAccount('/settings/profile')}
             accessibilityRole="button"
-            accessibilityLabel="Edit your profile"
+            accessibilityLabel={signedOut ? 'Sign in to edit your profile' : 'Edit your profile'}
             style={styles.editButton}
           >
             <Ionicons name="create-outline" size={18} color={colors.textPrimary} />
@@ -103,11 +114,11 @@ export default function ProfileScreen() {
 
           <View style={styles.addWrap}>
             <Button
-              label="Add a business"
-              icon="add"
+              label={signedOut ? 'Sign in to list a business' : 'Add a business'}
+              icon={signedOut ? 'log-in-outline' : 'add'}
               variant={ownedBusinesses.length > 0 ? 'secondary' : 'primary'}
               size="md"
-              onPress={() => router.push('/owner/claim')}
+              onPress={() => needsAccount('/owner/claim')}
             />
           </View>
         </View>
@@ -119,9 +130,9 @@ export default function ProfileScreen() {
             <InfoRow
               icon="person-outline"
               label="Your details"
-              value={viewer.name}
+              value={signedOut ? 'Not signed in' : viewer.name}
               tone="blue"
-              onPress={() => router.push('/settings/profile')}
+              onPress={() => needsAccount('/settings/profile')}
             />
             <InfoRow
               icon="notifications-outline"
@@ -154,10 +165,14 @@ export default function ProfileScreen() {
 
         <View style={styles.signOut}>
           <Button
-            label="Sign out"
+            label={signedOut ? 'Sign in' : 'Sign out'}
             variant="ghost"
             size="md"
             onPress={() => {
+              if (signedOut) {
+                router.push('/(auth)/sign-in');
+                return;
+              }
               signOut();
               router.replace('/(auth)/sign-in');
             }}

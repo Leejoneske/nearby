@@ -92,5 +92,5 @@ export function openState(hours: WeekHours, at: Date): OpenState {
 /** "7 AM – 10 PM" or "Closed", for the hours table on a detail page. */
 export function formatDayRange(day: WeekHours[number]): string {
   if (!day) return 'Closed';
-  return `${formatMinutes(day.open)} – ${formatMinutes(day.close)}`;
+  return `${formatMinutes(day.open)} to ${formatMinutes(day.close)}`;
 }

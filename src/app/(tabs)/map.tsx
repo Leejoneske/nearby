@@ -216,7 +216,7 @@ export default function MapScreen() {
           <View style={styles.hint}>
             <Ionicons name="hand-left-outline" size={15} color={colors.textSecondary} />
             <Text style={styles.hintText}>
-              Tap a pin to see the business — {visible.length} on this map
+              Tap a pin to see the business. {visible.length} on this map.
             </Text>
           </View>
         </View>

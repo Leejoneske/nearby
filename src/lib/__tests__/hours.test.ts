@@ -109,7 +109,7 @@ describe('openState', () => {
 
 describe('formatDayRange', () => {
   it('renders a range', () => {
-    expect(formatDayRange(h(9 * 60, 17 * 60))).toBe('9 AM – 5 PM');
+    expect(formatDayRange(h(9 * 60, 17 * 60))).toBe('9 AM to 5 PM');
   });
 
   it('renders a closed day', () => {

@@ -39,7 +39,7 @@ const SLIDES: Slide[] = [
   {
     icon: 'time',
     title: 'Know it is open before you go',
-    body: 'Opening hours come from the owners themselves, so "open now" means open at this minute — not usually, not probably.',
+    body: 'Opening hours come from the owners themselves, so "open now" means open at this minute, not usually, not probably.',
   },
   {
     icon: 'storefront',

@@ -17,7 +17,7 @@ const CURRENCY = 'KSh';
 
 /** "KSh 500 – 1,500", the price row from the listing reference. */
 export function formatPriceRange(from: number, to: number): string {
-  return `${CURRENCY} ${withThousands(from)} – ${withThousands(to)}`;
+  return `${CURRENCY} ${withThousands(from)} to ${withThousands(to)}`;
 }
 
 export function formatMoney(amount: number): string {

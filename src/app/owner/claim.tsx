@@ -116,11 +116,11 @@ export default function ClaimScreen() {
         </Text>
         <Text style={styles.doneBody}>
           It is live in search and on the map now. We will be in touch to confirm the
-          business is yours — until then it shows as unverified.
+          business is yours. Until then it shows as unverified.
         </Text>
         <Card style={styles.doneCard}>
           <Text style={styles.doneNext}>What to do next</Text>
-          <NextStep icon="images-outline" text="Add a few photos — listings with photos get opened far more often" />
+          <NextStep icon="images-outline" text="Add a few photos, because listings with photos get opened far more often" />
           <NextStep icon="time-outline" text="Set your opening hours so people know when to come" />
           <NextStep icon="pricetag-outline" text="Add a typical price range to set expectations" last />
         </Card>
@@ -251,7 +251,7 @@ export default function ClaimScreen() {
               value={tagline}
               onChangeText={setTagline}
               placeholder="e.g. Specialty coffee roaster"
-              hint="Optional — one line under your name in search results"
+              hint="Optional. One line under your name in search results."
             />
           </View>
         ) : null}

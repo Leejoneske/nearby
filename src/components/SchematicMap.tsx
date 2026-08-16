@@ -148,13 +148,16 @@ function MapDecor() {
         ]}
       />
 
-      <Text style={[styles.streetLabel, { top: '19%', left: '12%' }]}>Peponi Rd</Text>
-      <Text style={[styles.streetLabel, { top: '51%', left: '44%' }]}>Rhapta Rd</Text>
-      <Text style={[styles.streetLabel, { top: '30%', left: '31%', transform: [{ rotate: '90deg' }] }]}>
-        Waiyaki Way
-      </Text>
-      <Text style={[styles.areaLabel, { top: '64%', left: '8%' }]}>WESTLANDS</Text>
-      <Text style={[styles.areaLabel, { top: '12%', left: '58%' }]}>PARKLANDS</Text>
+      {/*
+        * No street or area names.
+        *
+        * These roads are decoration — they are not anywhere. Labelling them
+        * "Waiyaki Way" and "WESTLANDS", which this used to do, turns a
+        * neutral backdrop into a claim about geography that is simply false,
+        * and somebody reading a shop's position off it would be misled. The
+        * pins are honest, because they are projected from real coordinates.
+        * Everything behind them is texture and is now left unnamed.
+        */}
     </View>
   );
 }

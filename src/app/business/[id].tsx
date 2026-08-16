@@ -20,7 +20,7 @@ import {
 } from '../../lib/format';
 import { DAY_NAMES, formatDayRange, openState } from '../../lib/hours';
 import { callPhone, openDirections, openWebsite } from '../../lib/openLink';
-import { useStore } from '../../lib/store';
+import { NeedsAccountError, useStore } from '../../lib/store';
 import { absoluteFill, colors, radii, shadows, spacing, typography } from '../../theme/tokens';
 
 export default function BusinessScreen() {
@@ -357,17 +357,18 @@ export default function BusinessScreen() {
             </View>
           ) : (
             /*
-             * Claims the listing that is open, rather than opening an empty
-             * form — pointing this at the create flow is how you end up with
-             * two rows for the same shop.
+             * An invitation to list, not to claim.
+             *
+             * Claiming somebody else's listing is a decision that needs
+             * checking before it is offered as a one-tap action, and there is
+             * nothing checking it yet. Until there is, this says the same
+             * thing the home screen says, and means it.
              */
             <View style={styles.claimWrap}>
               <OwnerCta
-                title="Is this your business?"
-                body="Claim it to edit the details, reply to reviews and see who is finding you."
-                onPress={() =>
-                  router.push({ pathname: '/owner/claim', params: { business: business.id } })
-                }
+                title="Own a business?"
+                body="List it free and manage your own profile."
+                onPress={() => router.push('/owner/claim')}
               />
             </View>
           )}
@@ -388,7 +389,19 @@ export default function BusinessScreen() {
         visible={reporting}
         subject={business.name}
         onClose={() => setReporting(false)}
-        onSubmit={(reason) => reportBusiness(business.id, reason)}
+        onSubmit={async (reason) => {
+          try {
+            await reportBusiness(business.id, reason);
+          } catch (e) {
+            // Being sent to sign in is not a failure to show an error about;
+            // the sign-in screen is already on its way.
+            if (e instanceof NeedsAccountError) {
+              setReporting(false);
+              return;
+            }
+            throw e;
+          }
+        }}
       />
 
       {/* Sticky bottom bar */}

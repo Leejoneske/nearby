@@ -100,6 +100,20 @@ type StoreValue = {
   addReview: (businessId: string, review: Review) => void;
 };
 
+/**
+ * Thrown when a write needs an account and there is not one.
+ *
+ * The store has already sent them to sign in by the time this lands, so a
+ * screen catching it should close quietly rather than showing an error on top
+ * of the sign-in page.
+ */
+export class NeedsAccountError extends Error {
+  constructor() {
+    super('An account is needed for that.');
+    this.name = 'NeedsAccountError';
+  }
+}
+
 const StoreContext = createContext<StoreValue | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
@@ -417,14 +431,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [origin.lat, origin.lng, loadBusinesses],
   );
 
+  /*
+   * Throws rather than returning quietly when there is nobody to attribute
+   * the report to.
+   *
+   * The first version returned early, which the report sheet read as success
+   * and answered with "thank you, we will take a look" — for a report that
+   * was never written. A caller cannot tell "done" from "silently dropped"
+   * unless the failure is a failure.
+   */
   const reportBusiness = useCallback(
     async (id: string, reason: string) => {
-      const business = businesses.find((b) => b.id === id);
       if (!profileId) {
         router.push('/(auth)/sign-in');
-        return;
+        throw new NeedsAccountError();
       }
-      if (!business?.dbId) return;
+
+      const business = businesses.find((b) => b.id === id);
+      if (!business?.dbId) throw new Error('That listing is not loaded.');
+
       await api.createReport({
         targetType: 'business',
         targetId: business.dbId,
