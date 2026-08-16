@@ -8,13 +8,17 @@ import type { AppNotification, NotificationKind } from '../data/types';
 import { formatRelativeDate } from '../lib/format';
 import { useScreenInsets } from '../lib/insets';
 import { useStore } from '../lib/store';
-import { colors, radii, spacing, typography } from '../theme/tokens';
+import { colors, radii, spacing, tones, typography, type ToneName } from '../theme/tokens';
 
-const ICONS: Record<NotificationKind, string> = {
-  review: 'star',
-  reply: 'return-down-forward',
-  offer: 'pricetag',
-  listing: 'checkmark-circle',
+/**
+ * A glyph and a colour per kind, so a list of notices can be skimmed for the
+ * one that matters without reading every title.
+ */
+const KIND: Record<NotificationKind, { icon: string; tone: ToneName }> = {
+  review: { icon: 'star', tone: 'amber' },
+  reply: { icon: 'return-down-forward', tone: 'violet' },
+  offer: { icon: 'pricetag', tone: 'orange' },
+  listing: { icon: 'checkmark-circle', tone: 'green' },
 };
 
 export default function NotificationsScreen() {
@@ -72,11 +76,20 @@ export default function NotificationsScreen() {
               pressed && { backgroundColor: colors.surfaceSunken },
             ]}
           >
-            <View style={[styles.icon, !item.read && styles.iconUnread]}>
+            {/*
+              * Read notices go grey on purpose: colour here means "this is
+              * still waiting for you", not "this is a review".
+              */}
+            <View
+              style={[
+                styles.icon,
+                !item.read && { backgroundColor: tones[KIND[item.kind].tone].soft },
+              ]}
+            >
               <Ionicons
-                name={ICONS[item.kind] as never}
+                name={KIND[item.kind].icon as never}
                 size={17}
-                color={item.read ? colors.textSecondary : colors.accent}
+                color={item.read ? colors.textTertiary : tones[KIND[item.kind].tone].fg}
               />
             </View>
 
@@ -145,7 +158,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 2,
   },
-  iconUnread: { backgroundColor: colors.accentSoft },
   body: { flex: 1, gap: 3 },
   title: { ...typography.bodyStrong, color: colors.textPrimary, fontWeight: '600' },
   titleUnread: { fontWeight: '700' },

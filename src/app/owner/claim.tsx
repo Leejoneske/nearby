@@ -23,11 +23,11 @@ import { useScreenInsets } from '../../lib/insets';
 import { Button } from '../../components/Button';
 import { Field } from '../../components/Field';
 import { Card } from '../../components/primitives';
-import { CATEGORIES, categoryOf } from '../../data/categories';
+import { CATEGORIES, CATEGORY_TONES, categoryOf } from '../../data/categories';
 import { DEFAULT_ORIGIN } from '../../data/location';
 import type { Business, CategoryId } from '../../data/types';
 import { useStore } from '../../lib/store';
-import { colors, radii, spacing, typography } from '../../theme/tokens';
+import { colors, radii, spacing, tones, typography } from '../../theme/tokens';
 
 type Verification = 'phone' | 'postcard' | 'email';
 
@@ -279,7 +279,11 @@ export default function ClaimScreen() {
                 accessibilityState={{ selected: categoryId === category.id }}
                 style={[styles.sheetOption, index < CATEGORIES.length - 1 && styles.sheetDivider]}
               >
-                <Ionicons name={category.icon as never} size={19} color={colors.textSecondary} />
+                <Ionicons
+                  name={category.icon as never}
+                  size={19}
+                  color={tones[CATEGORY_TONES[category.id]].fg}
+                />
                 <Text style={styles.sheetOptionLabel}>{category.label}</Text>
                 {categoryId === category.id ? (
                   <Ionicons name="checkmark-circle" size={20} color={colors.accent} />

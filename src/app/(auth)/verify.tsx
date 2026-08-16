@@ -30,7 +30,7 @@ const RESEND_SECONDS = 30;
 export default function VerifyScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
-  const { phone } = useLocalSearchParams<{ phone?: string }>();
+  const { email } = useLocalSearchParams<{ email?: string }>();
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | undefined>();
   const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
@@ -48,9 +48,9 @@ export default function VerifyScreen() {
     if (value.length < LENGTH || checking) return;
     setChecking(true);
     const { error: verifyError } = await supabase.auth.verifyOtp({
-      phone: (phone ?? '').replace(/[^\d+]/g, ''),
+      email: (email ?? '').trim().toLowerCase(),
       token: value,
-      type: 'sms',
+      type: 'email',
     });
     setChecking(false);
 
@@ -94,7 +94,9 @@ export default function VerifyScreen() {
 
         <Text style={styles.title}>Enter your code</Text>
         <Text style={styles.body}>
-          We sent six digits to {phone ? <Text style={styles.phone}>{phone}</Text> : 'your phone'}.
+          We sent six digits to{' '}
+          {email ? <Text style={styles.phone}>{email}</Text> : 'your inbox'}. It may
+          take a moment to arrive.
         </Text>
 
         <Pressable

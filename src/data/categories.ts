@@ -1,3 +1,4 @@
+import type { ToneName } from '../theme/tokens';
 import type { Category, CategoryId } from './types';
 
 /** Icons are Ionicons glyph names — bundled with expo, no extra asset. */
@@ -21,6 +22,28 @@ export function categoryOf(id: CategoryId): Category {
   if (!found) throw new Error(`Unknown category: ${id}`);
   return found;
 }
+
+/**
+ * The colour each category's icon is drawn in.
+ *
+ * Ten categories in one horizontal row all painted the brand orange read as
+ * one undifferentiated block; a colour per category makes the row scannable
+ * without anybody having to read the labels. The hues deliberately track
+ * CATEGORY_GRADIENTS below, so a category looks like itself whether it is
+ * showing as an icon or as a generated photo.
+ */
+export const CATEGORY_TONES: Record<CategoryId, ToneName> = {
+  restaurant: 'orange',
+  cafe: 'brown',
+  beauty: 'pink',
+  shopping: 'gold',
+  auto: 'steel',
+  health: 'green',
+  fitness: 'violet',
+  hotel: 'indigo',
+  services: 'slate',
+  nightlife: 'plum',
+};
 
 /**
  * Gradient pairs used to generate a listing photo when a business has no

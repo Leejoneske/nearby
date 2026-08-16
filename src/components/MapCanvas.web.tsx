@@ -20,7 +20,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { colors, radii, shadows } from '../theme/tokens';
+import { colors, radii, shadows, tones, type ToneName } from '../theme/tokens';
 
 export type MapMarker = {
   id: string;
@@ -28,6 +28,8 @@ export type MapMarker = {
   lng: number;
   label: string;
   icon: string;
+  /** Pin colour, from the listing's category. */
+  tone: ToneName;
   selected?: boolean;
 };
 
@@ -87,7 +89,11 @@ export function MapCanvas({ region, markers, onSelectMarker, style }: Props) {
                 <View
                   style={[
                     styles.pin,
-                    { width: pinSize, height: pinSize },
+                    {
+                      width: pinSize,
+                      height: pinSize,
+                      backgroundColor: tones[marker.tone].fg,
+                    },
                     marker.selected && styles.pinSelected,
                   ]}
                 >
@@ -201,7 +207,6 @@ const styles = StyleSheet.create({
   markerWrapSelected: { zIndex: 10 },
   pin: {
     borderRadius: radii.pill,
-    backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2.5,

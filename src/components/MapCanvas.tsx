@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, PROVIDER_DEFAULT, type Region } from 'react-native-maps';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors, radii, shadows } from '../theme/tokens';
+import { colors, radii, shadows, tones, type ToneName } from '../theme/tokens';
 import { MAP_STYLE } from '../theme/mapStyle';
 
 export type MapMarker = {
@@ -18,6 +18,8 @@ export type MapMarker = {
   lng: number;
   label: string;
   icon: string;
+  /** Pin colour, from the listing's category. */
+  tone: ToneName;
   selected?: boolean;
 };
 
@@ -47,7 +49,17 @@ export function MapCanvas({ region, markers, onSelectMarker, style }: Props) {
           onPress={() => onSelectMarker?.(marker.id)}
           tracksViewChanges={false}
         >
-          <View style={[styles.pin, marker.selected && styles.pinSelected]}>
+          {/*
+            * A selected pin goes near-black rather than keeping its colour:
+            * "which one am I looking at" has to beat "what kind is it".
+            */}
+          <View
+            style={[
+              styles.pin,
+              { backgroundColor: tones[marker.tone].fg },
+              marker.selected && styles.pinSelected,
+            ]}
+          >
             <Ionicons
               name={marker.icon as never}
               size={marker.selected ? 18 : 15}
@@ -70,7 +82,6 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: radii.pill,
-    backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2.5,

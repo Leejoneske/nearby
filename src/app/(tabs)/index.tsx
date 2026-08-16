@@ -8,7 +8,7 @@ import { BusinessCard } from '../../components/BusinessCard';
 import { CategoryTile } from '../../components/Chip';
 import { SearchField } from '../../components/SearchField';
 import { Avatar, SectionHeader } from '../../components/primitives';
-import { CATEGORIES } from '../../data/categories';
+import { CATEGORIES, CATEGORY_TONES } from '../../data/categories';
 import { DEFAULT_FILTERS } from '../../data/types';
 import { formatDistance } from '../../lib/format';
 import { openState } from '../../lib/hours';
@@ -21,7 +21,9 @@ import {
   spacing,
   TAB_BAR_HEIGHT,
   TAB_BAR_INSET,
+  tones,
   typography,
+  type ToneName,
 } from '../../theme/tokens';
 
 export default function HomeScreen() {
@@ -131,6 +133,7 @@ export default function HomeScreen() {
               key={category.id}
               label={category.label}
               icon={category.icon}
+              tone={CATEGORY_TONES[category.id]}
               onPress={() => goToSearch({ category: category.id })}
             />
           ))}
@@ -145,21 +148,25 @@ export default function HomeScreen() {
           <QuickFilter
             icon="time"
             label="Open now"
+            tone="green"
             onPress={() => goToSearch({ openNow: '1' })}
           />
           <QuickFilter
             icon="star"
             label="Top rated"
+            tone="amber"
             onPress={() => goToSearch({ sort: 'rating' })}
           />
           <QuickFilter
             icon="walk"
             label="Under 1 km"
+            tone="blue"
             onPress={() => goToSearch({ radius: '1000' })}
           />
           <QuickFilter
             icon="pricetag"
             label="Budget"
+            tone="teal"
             onPress={() => goToSearch({ price: '1' })}
           />
         </ScrollView>
@@ -268,13 +275,20 @@ export default function HomeScreen() {
   );
 }
 
+/**
+ * A one-tap shortcut into search. The glyph carries the meaning — green for
+ * open, amber for a rating, and so on — so the row reads as four different
+ * offers rather than four copies of the same button.
+ */
 function QuickFilter({
   icon,
   label,
+  tone,
   onPress,
 }: {
   icon: string;
   label: string;
+  tone: ToneName;
   onPress: () => void;
 }) {
   return (
@@ -283,7 +297,7 @@ function QuickFilter({
       accessibilityRole="button"
       style={({ pressed }) => [styles.quickChip, pressed && { opacity: 0.75 }]}
     >
-      <Ionicons name={icon as never} size={15} color={colors.accent} />
+      <Ionicons name={icon as never} size={15} color={tones[tone].fg} />
       <Text style={styles.quickLabel}>{label}</Text>
     </Pressable>
   );

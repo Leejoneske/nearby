@@ -25,12 +25,3 @@ export async function markIntroSeen(): Promise<void> {
     // Nothing useful to do: the intro simply shows again next launch.
   }
 }
-
-/** Only used by the "show the intro again" row in settings. */
-export async function resetIntro(): Promise<void> {
-  try {
-    await AsyncStorage.removeItem(KEY);
-  } catch {
-    // Same reasoning as above.
-  }
-}

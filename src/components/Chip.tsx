@@ -5,7 +5,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radii, spacing, typography } from '../theme/tokens';
+import { colors, radii, spacing, tones, typography, type ToneName } from '../theme/tokens';
 
 type ChipProps = {
   label: string;
@@ -55,11 +55,14 @@ export function Chip({ label, onPress, icon, dropdown, selected, badge }: ChipPr
 type CategoryTileProps = {
   label: string;
   icon: string;
+  /** Colour for the glyph. Defaults to the brand accent. */
+  tone?: ToneName;
   selected?: boolean;
   onPress?: () => void;
 };
 
-export function CategoryTile({ label, icon, selected, onPress }: CategoryTileProps) {
+export function CategoryTile({ label, icon, tone, selected, onPress }: CategoryTileProps) {
+  const hue = tone ? tones[tone] : undefined;
   return (
     <Pressable
       onPress={onPress}
@@ -67,11 +70,21 @@ export function CategoryTile({ label, icon, selected, onPress }: CategoryTilePro
       accessibilityState={{ selected: !!selected }}
       style={({ pressed }) => [styles.tile, pressed && { opacity: 0.7 }]}
     >
-      <View style={[styles.tileIcon, selected && styles.tileIconSelected]}>
+      {/*
+       * Selected wins over the tone: a selected tile has to read as selected
+       * at a glance, and ten different "selected" colours would not.
+       */}
+      <View
+        style={[
+          styles.tileIcon,
+          hue && !selected && { borderColor: hue.soft, backgroundColor: hue.soft },
+          selected && styles.tileIconSelected,
+        ]}
+      >
         <Ionicons
           name={icon as never}
           size={22}
-          color={selected ? colors.textOnAccent : colors.accent}
+          color={selected ? colors.textOnAccent : (hue?.fg ?? colors.accent)}
         />
       </View>
       <Text style={styles.tileLabel} numberOfLines={1}>

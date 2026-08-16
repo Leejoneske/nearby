@@ -18,11 +18,11 @@ import { Button } from '../../../components/Button';
 import { Field } from '../../../components/Field';
 import { Photo } from '../../../components/Photo';
 import { Card, EmptyState } from '../../../components/primitives';
-import { CATEGORIES, categoryOf } from '../../../data/categories';
+import { CATEGORIES, CATEGORY_TONES, categoryOf } from '../../../data/categories';
 import type { CategoryId, WeekHours } from '../../../data/types';
 import { DAY_NAMES, formatDayRange } from '../../../lib/hours';
 import { useStore } from '../../../lib/store';
-import { colors, radii, spacing, typography } from '../../../theme/tokens';
+import { colors, radii, spacing, tones, typography } from '../../../theme/tokens';
 
 export default function EditListingScreen() {
   const router = useRouter();
@@ -320,7 +320,7 @@ export default function EditListingScreen() {
                 <Ionicons
                   name={category.icon as never}
                   size={19}
-                  color={colors.textSecondary}
+                  color={tones[CATEGORY_TONES[category.id]].fg}
                 />
                 <Text style={styles.sheetOptionLabel}>{category.label}</Text>
                 {categoryId === category.id ? (

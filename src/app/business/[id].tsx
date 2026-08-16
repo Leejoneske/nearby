@@ -9,7 +9,7 @@ import { MapCanvas } from '../../components/MapCanvas';
 import { Photo } from '../../components/Photo';
 import { Stars } from '../../components/Stars';
 import { Avatar, Card, EmptyState, Pill } from '../../components/primitives';
-import { categoryOf } from '../../data/categories';
+import { CATEGORY_TONES, categoryOf } from '../../data/categories';
 import {
   formatDistance,
   formatPriceRange,
@@ -247,6 +247,7 @@ export default function BusinessScreen() {
                     lng: business.lng,
                     label: business.name,
                     icon: category.icon,
+                    tone: CATEGORY_TONES[business.categoryId],
                     selected: true,
                   },
                 ]}

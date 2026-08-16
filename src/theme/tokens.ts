@@ -51,6 +51,42 @@ export const colors = {
   overlay: 'rgba(0,0,0,0.45)',
 } as const;
 
+/**
+ * Icon tones.
+ *
+ * Every glyph in the app used to be the brand orange on a pale orange tile,
+ * which made ten different things look like ten copies of the same thing —
+ * and made the accent stop meaning "this is the action" because everything
+ * was already wearing it.
+ *
+ * Each tone is a pair: `fg` for the glyph, `soft` for the tile behind it when
+ * there is one. The soft values are pre-flattened onto the canvas rather than
+ * being the fg at low opacity, so they render identically over a card and
+ * over the app background.
+ *
+ * Orange stays reserved for what it always meant: the primary action, the
+ * active tab, the price. Reach for another tone when the icon is a label
+ * rather than a button.
+ */
+export const tones = {
+  orange: { fg: '#FF5A1F', soft: '#FFE9E0' },
+  brown: { fg: '#8C5A3C', soft: '#F2E7DE' },
+  pink: { fg: '#C2427A', soft: '#FBE6F0' },
+  gold: { fg: '#C98A2E', soft: '#FBEFD9' },
+  steel: { fg: '#4F6D87', soft: '#E4EBF1' },
+  green: { fg: '#1B9C5D', soft: '#E4F5EC' },
+  violet: { fg: '#6A5AA8', soft: '#ECE8F8' },
+  indigo: { fg: '#3D5A98', soft: '#E5EAF5' },
+  slate: { fg: '#6F7B87', soft: '#EAEEF1' },
+  plum: { fg: '#7B3FA0', soft: '#F0E6F7' },
+  blue: { fg: '#2E7BE6', soft: '#E3EDFC' },
+  teal: { fg: '#0E8F9E', soft: '#DDF1F3' },
+  amber: { fg: '#E09400', soft: '#FFF1D6' },
+  red: { fg: '#D93025', soft: '#FBE9E7' },
+} as const;
+
+export type ToneName = keyof typeof tones;
+
 /** 4pt grid. Screens use `screen` for their horizontal gutter. */
 export const spacing = {
   xs: 4,

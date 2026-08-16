@@ -2,7 +2,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors, radii, shadows, spacing, typography } from '../theme/tokens';
+import {
+  colors,
+  radii,
+  shadows,
+  spacing,
+  tones,
+  typography,
+  type ToneName,
+} from '../theme/tokens';
 
 export function Avatar({
   initials,
@@ -63,24 +71,38 @@ export function Card({
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
-/** A labelled row inside a card — icon, label, value, optional chevron. */
+/**
+ * A labelled row inside a card — icon, label, value, optional chevron.
+ *
+ * `tone` is what decides whether the glyph gets a tile behind it. A row that
+ * leads somewhere is worth marking; a row that only states a fact is not, and
+ * giving every row the same coloured square is how a settings list turns into
+ * a wall of identical badges.
+ */
 export function InfoRow({
   icon,
   label,
   value,
+  tone,
   onPress,
   last,
 }: {
   icon: string;
   label: string;
   value?: string;
+  tone?: ToneName;
   onPress?: () => void;
   last?: boolean;
 }) {
+  const hue = tone ? tones[tone] : undefined;
   const content = (
     <View style={[styles.infoRow, !last && styles.infoDivider]}>
-      <View style={styles.infoIcon}>
-        <Ionicons name={icon as never} size={17} color={colors.accent} />
+      <View style={[styles.infoIcon, hue && { backgroundColor: hue.soft }]}>
+        <Ionicons
+          name={icon as never}
+          size={hue ? 17 : 19}
+          color={hue?.fg ?? colors.textTertiary}
+        />
       </View>
       <View style={styles.infoText}>
         <Text style={styles.infoLabel} numberOfLines={2}>
@@ -190,11 +212,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
+  // No background by default — a tone adds one. The fixed width keeps every
+  // label in a list aligned whether its glyph is tiled or bare.
   infoIcon: {
     width: 34,
     height: 34,
     borderRadius: radii.md,
-    backgroundColor: colors.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },

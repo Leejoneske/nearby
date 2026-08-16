@@ -11,7 +11,15 @@ import { formatDelta, formatRelativeDate } from '../../../lib/format';
 import { openState } from '../../../lib/hours';
 import * as api from '../../../lib/api';
 import { useStore } from '../../../lib/store';
-import { colors, radii, shadows, spacing, typography } from '../../../theme/tokens';
+import {
+  colors,
+  radii,
+  shadows,
+  spacing,
+  tones,
+  typography,
+  type ToneName,
+} from '../../../theme/tokens';
 
 export default function OwnerDashboard() {
   const router = useRouter();
@@ -120,6 +128,7 @@ export default function OwnerDashboard() {
               icon="eye"
               value={insights.viewsThisWeek.toLocaleString()}
               label="Profile views"
+              tone="blue"
               delta={
                 insights.viewsLastWeek > 0
                   ? formatDelta(insights.viewsThisWeek, insights.viewsLastWeek)
@@ -127,16 +136,23 @@ export default function OwnerDashboard() {
               }
               positive={insights.viewsThisWeek >= insights.viewsLastWeek}
             />
-            <StatTile icon="call" value={String(insights.callsThisWeek)} label="Calls" />
+            <StatTile
+              icon="call"
+              value={String(insights.callsThisWeek)}
+              label="Calls"
+              tone="green"
+            />
             <StatTile
               icon="navigate"
               value={String(insights.directionsThisWeek)}
               label="Direction requests"
+              tone="teal"
             />
             <StatTile
               icon="chatbubbles"
               value={String(business.reviewCount)}
               label="Reviews"
+              tone="violet"
             />
           </View>
         ) : (
@@ -159,17 +175,20 @@ export default function OwnerDashboard() {
               icon="create-outline"
               label="Edit business details"
               detail="Name, category, description, contact"
+              tone="orange"
               onPress={() => router.push(`/owner/edit/${business.id}`)}
             />
             <ActionRow
               icon="time-outline"
               label="Opening hours"
               detail={state.label}
+              tone="green"
               onPress={() => router.push(`/owner/edit/${business.id}`)}
             />
             <ActionRow
               icon="images-outline"
               label="Photos"
+              tone="pink"
               detail={
                 business.photos.length
                   ? `${business.photos.length} uploaded`
@@ -180,6 +199,7 @@ export default function OwnerDashboard() {
             <ActionRow
               icon="chatbubbles-outline"
               label="Reviews"
+              tone="violet"
               detail={
                 unanswered.length
                   ? `${unanswered.length} waiting for a reply`
@@ -241,19 +261,21 @@ function StatTile({
   icon,
   value,
   label,
+  tone,
   delta,
   positive,
 }: {
   icon: string;
   value: string;
   label: string;
+  tone: ToneName;
   delta?: string;
   positive?: boolean;
 }) {
   return (
     <View style={styles.statTile}>
-      <View style={styles.statIcon}>
-        <Ionicons name={icon as never} size={16} color={colors.accent} />
+      <View style={[styles.statIcon, { backgroundColor: tones[tone].soft }]}>
+        <Ionicons name={icon as never} size={16} color={tones[tone].fg} />
       </View>
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel} numberOfLines={1}>
@@ -272,6 +294,7 @@ function ActionRow({
   icon,
   label,
   detail,
+  tone,
   onPress,
   badge,
   last,
@@ -279,6 +302,7 @@ function ActionRow({
   icon: string;
   label: string;
   detail: string;
+  tone: ToneName;
   onPress: () => void;
   badge?: number;
   last?: boolean;
@@ -294,8 +318,8 @@ function ActionRow({
         pressed && { opacity: 0.7 },
       ]}
     >
-      <View style={styles.actionIcon}>
-        <Ionicons name={icon as never} size={17} color={colors.accent} />
+      <View style={[styles.actionIcon, { backgroundColor: tones[tone].soft }]}>
+        <Ionicons name={icon as never} size={17} color={tones[tone].fg} />
       </View>
       <View style={styles.actionText}>
         <Text style={styles.actionLabel}>{label}</Text>
@@ -359,7 +383,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: radii.md,
-    backgroundColor: colors.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.sm,
@@ -385,7 +408,6 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: radii.md,
-    backgroundColor: colors.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },

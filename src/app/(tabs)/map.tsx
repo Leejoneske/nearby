@@ -9,7 +9,7 @@ import { MapCanvas } from '../../components/MapCanvas';
 import { Photo } from '../../components/Photo';
 import { SearchField } from '../../components/SearchField';
 import { Stars } from '../../components/Stars';
-import { CATEGORIES, categoryOf } from '../../data/categories';
+import { CATEGORIES, CATEGORY_TONES, categoryOf } from '../../data/categories';
 import { DEFAULT_ORIGIN } from '../../data/location';
 import type { CategoryId } from '../../data/types';
 import { formatDistance, formatPriceRange } from '../../lib/format';
@@ -60,6 +60,7 @@ export default function MapScreen() {
         lng: b.lng,
         label: b.name,
         icon: categoryOf(b.categoryId).icon,
+        tone: CATEGORY_TONES[b.categoryId],
         selected: b.id === selectedId,
       })),
     [visible, selectedId],

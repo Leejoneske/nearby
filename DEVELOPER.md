@@ -83,6 +83,25 @@ The landing page keeps its own copy of the palette in `landing/styles.css`,
 because it cannot import TypeScript. If a brand colour changes, change it in
 both.
 
+### The accent is not the default icon colour
+
+`tones` in the same file holds a named colour per icon: a `fg` for the glyph
+and a `soft` for the tile behind it when there is one. Reach for one of those
+rather than `colors.accent` whenever the icon is a **label** — a category, a
+kind of notification, a sort of statistic. Orange stays reserved for what it
+has always meant: the primary action, the active tab, the price, the saved
+heart. When every glyph wears the accent, the accent stops picking anything
+out, and ten categories in a row read as one grey block with pictures on it.
+
+Category colours live in `CATEGORY_TONES` and deliberately track
+`CATEGORY_GRADIENTS`, so a cafe looks like itself whether it is an icon, a map
+pin, or a generated photo.
+
+**A tile is not automatic either.** `InfoRow` draws the coloured square only
+when it is given a tone, because a row that leads somewhere is worth marking
+and a row that merely states a fact is not. A settings list where every line
+carries an identical badge is a wall, not a list.
+
 ## Decisions live outside the components
 
 Whether a shop is open, how results rank, how a distance reads — all of that

@@ -133,18 +133,41 @@ export type Origin = { lat: number; lng: number };
  */
 export async function fetchNearby(
   origin: Origin,
-  options: { radiusM?: number; category?: CategoryId | null; query?: string; limit?: number } = {},
+  options: {
+    radiusM?: number;
+    category?: CategoryId | null;
+    query?: string;
+    limit?: number;
+    /** Widen to everywhere when nothing is close. On by default. */
+    widenIfEmpty?: boolean;
+  } = {},
 ): Promise<Business[]> {
-  const { data, error } = await supabase.rpc('businesses_nearby', {
-    in_lat: origin.lat,
-    in_lng: origin.lng,
-    in_radius_m: options.radiusM ?? 25_000,
-    in_category: options.category ?? null,
-    in_query: options.query ?? null,
-    in_limit: options.limit ?? 100,
-  });
-  if (error) throw error;
-  return (data as BusinessRow[]).map((row) => toBusiness(row));
+  const run = async (radius: number) => {
+    const { data, error } = await supabase.rpc('businesses_nearby', {
+      in_lat: origin.lat,
+      in_lng: origin.lng,
+      in_radius_m: radius,
+      in_category: options.category ?? null,
+      in_query: options.query ?? null,
+      in_limit: options.limit ?? 100,
+    });
+    if (error) throw error;
+    return (data as BusinessRow[]).map((row) => toBusiness(row));
+  };
+
+  const rows = await run(options.radiusM ?? 25_000);
+  if (rows.length > 0 || options.widenIfEmpty === false) return rows;
+
+  /*
+   * Nothing within the radius. Rather than an empty screen, widen to the
+   * whole world and show the nearest anyway — a directory with two entries
+   * on another continent is still more use than "no results", and the
+   * distance shown tells the truth about how far away they are.
+   *
+   * EARTH_M is half the planet's circumference, so the search cannot miss.
+   */
+  const EARTH_M = 20_100_000;
+  return run(EARTH_M);
 }
 
 /** One listing with its reviews, by slug. */

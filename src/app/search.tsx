@@ -9,12 +9,12 @@ import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
 import { SearchField } from '../components/SearchField';
 import { EmptyState } from '../components/primitives';
-import { CATEGORIES, categoryOf } from '../data/categories';
+import { CATEGORIES, CATEGORY_TONES, categoryOf } from '../data/categories';
 import { DEFAULT_FILTERS, type CategoryId, type Filters, type SortKey } from '../data/types';
 import { formatDistance, formatPriceLevel } from '../lib/format';
 import { activeFilterCount, searchBusinesses, SORT_LABELS } from '../lib/search';
 import { useStore } from '../lib/store';
-import { colors, radii, spacing, typography } from '../theme/tokens';
+import { colors, radii, spacing, tones, typography, type ToneName } from '../theme/tokens';
 
 type SheetKind = 'sort' | 'price' | 'radius' | 'all' | null;
 
@@ -270,6 +270,7 @@ export default function SearchScreen() {
           key: category.id,
           label: category.label,
           icon: category.icon,
+          tone: CATEGORY_TONES[category.id],
           selected: filters.categoryId === category.id,
           onPress: () => {
             patch({ categoryId: filters.categoryId === category.id ? null : category.id });
@@ -289,6 +290,8 @@ type SheetOption = {
   key: string;
   label: string;
   icon?: string;
+  /** Colours the glyph. Omitted for lists where every row is the same kind. */
+  tone?: ToneName;
   selected: boolean;
   onPress: () => void;
 };
@@ -335,7 +338,11 @@ function Sheet({
             ]}
           >
             {option.icon ? (
-              <Ionicons name={option.icon as never} size={18} color={colors.textSecondary} />
+              <Ionicons
+                name={option.icon as never}
+                size={18}
+                color={option.tone ? tones[option.tone].fg : colors.textSecondary}
+              />
             ) : null}
             <Text style={styles.sheetOptionLabel}>{option.label}</Text>
             {option.selected ? (

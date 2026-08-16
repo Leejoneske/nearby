@@ -1,10 +1,10 @@
 /**
- * Sign in with a phone number.
+ * Sign in with an email address.
  *
- * A phone-first flow rather than email and password: it matches how the claim
- * flow already verifies an owner, and it is what people here actually have.
- * Sending the code is a stub for now — `signIn` in the store is the seam the
- * real auth call slots into.
+ * Email rather than phone because it works anywhere without an SMS provider
+ * in every country the app reaches, and costs nothing to send. A six digit
+ * code rather than a magic link: a link has to survive being opened in the
+ * wrong browser and handed back to the app, and a code does not.
  */
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -25,23 +25,23 @@ import { useScreenInsets } from '../../lib/insets';
 import { supabase } from '../../lib/supabase';
 import { colors, radii, spacing, typography } from '../../theme/tokens';
 
-/** Digits only, ignoring spaces and a leading +. */
-export function isPlausiblePhone(input: string): boolean {
-  const digits = input.replace(/[^\d]/g, '');
-  return digits.length >= 9 && digits.length <= 15;
+/** Deliberately loose: the only real test is whether the code arrives. */
+export function isPlausibleEmail(input: string): boolean {
+  const trimmed = input.trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(trimmed);
 }
 
 export default function SignInScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
-  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [touched, setTouched] = useState(false);
   const [sending, setSending] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
-  const valid = isPlausiblePhone(phone);
+  const valid = isPlausibleEmail(email);
   const error =
-    failure ?? (touched && !valid ? 'Enter a phone number we can text' : undefined);
+    failure ?? (touched && !valid ? 'Enter an email address we can reach' : undefined);
 
   const onContinue = async () => {
     setTouched(true);
@@ -49,20 +49,18 @@ export default function SignInScreen() {
     if (!valid) return;
 
     setSending(true);
-    // Sends a real code. Until an SMS provider is configured on the project
-    // this fails, and the message below is what the person sees — better
-    // than a screen that pretends to have sent something.
     const { error: sendError } = await supabase.auth.signInWithOtp({
-      phone: phone.replace(/[^\d+]/g, ''),
+      email: email.trim().toLowerCase(),
+      options: { shouldCreateUser: true },
     });
     setSending(false);
 
     if (sendError) {
-      setFailure('We could not send a code just now. Please try again shortly.');
+      setFailure('We could not send the code just now. Please try again shortly.');
       console.warn('[auth] sending the code failed', sendError);
       return;
     }
-    router.push({ pathname: '/(auth)/verify', params: { phone: phone.trim() } });
+    router.push({ pathname: '/(auth)/verify', params: { email: email.trim().toLowerCase() } });
   };
 
   return (
@@ -100,13 +98,13 @@ export default function SignInScreen() {
 
         <View style={styles.form}>
           <Field
-            label="Phone number"
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-            placeholder="+254 7.. ... ..."
+            label="Email address"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            placeholder="you@example.com"
             error={error}
-            hint="We will text you a six digit code."
+            hint="We will email you a six digit code. No password to remember."
           />
           <Button label="Continue" onPress={onContinue} loading={sending} />
         </View>

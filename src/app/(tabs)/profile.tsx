@@ -7,7 +7,6 @@ import { Button } from '../../components/Button';
 import { Photo } from '../../components/Photo';
 import { Avatar, Card, InfoRow, Pill, SectionHeader } from '../../components/primitives';
 import { appVersionLabel } from '../../lib/appInfo';
-import { resetIntro } from '../../lib/firstRun';
 
 import { useStore } from '../../lib/store';
 import {
@@ -121,32 +120,29 @@ export default function ProfileScreen() {
               icon="person-outline"
               label="Your details"
               value={viewer.name}
+              tone="blue"
               onPress={() => router.push('/settings/profile')}
             />
             <InfoRow
               icon="notifications-outline"
               label="Notifications"
               value={unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
+              tone="orange"
               onPress={() => router.push('/notifications')}
             />
             <InfoRow
               icon="shield-checkmark-outline"
               label="Privacy Policy"
+              tone="green"
               onPress={() => router.push('/legal/privacy')}
             />
             <InfoRow
               icon="document-text-outline"
               label="Terms of Use"
+              tone="steel"
               onPress={() => router.push('/legal/terms')}
             />
-            <InfoRow
-              icon="play-circle-outline"
-              label="Replay the introduction"
-              onPress={async () => {
-                await resetIntro();
-                router.replace('/intro');
-              }}
-            />
+            {/* No tone: nothing to tap, so nothing to draw the eye. */}
             <InfoRow
               icon="information-circle-outline"
               label="Version"
