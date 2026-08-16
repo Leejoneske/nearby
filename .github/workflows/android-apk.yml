@@ -31,14 +31,25 @@ jobs:
 
       # Expo SDK 57 / React Native 0.86 builds against JDK 17.
       #
-      # Caching Gradle matters more here than it looks: every run compiles the
-      # native modules from C++ on a two-core runner, and without a cache that
-      # work is repeated in full each time.
+      # No `cache: gradle` here: that option looks for *.gradle files at this
+      # point in the job, and android/ does not exist until expo prebuild runs
+      # three steps below. It fails the whole job in twenty seconds. The cache
+      # is handled separately, keyed on the lockfile that decides what the
+      # generated project will contain.
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
-          cache: gradle
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
 
       - name: Install dependencies
         run: npm ci
