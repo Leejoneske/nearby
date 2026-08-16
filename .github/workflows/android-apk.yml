@@ -81,6 +81,15 @@ jobs:
       - name: Build one APK per architecture
         run: |
           sed -i 's/^reactNativeArchitectures=.*/reactNativeArchitectures=armeabi-v7a,arm64-v8a/' android/gradle.properties
+
+          # The generated project asks for 512 MB of metaspace. That is not
+          # enough for this app: compileReleaseArtProfile dies with
+          # OutOfMemoryError: Metaspace, and long before it does the JVM
+          # spends most of its time collecting garbage — which is why a build
+          # that should take fifteen minutes was taking forty and then
+          # failing. The runner has 8 GB; give Gradle a real share of it.
+          sed -i 's/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=2048m -XX:+UseParallelGC/' android/gradle.properties
+          grep -E '^org.gradle.jvmargs|^reactNativeArchitectures' android/gradle.properties
           cat >> android/app/build.gradle <<'GRADLE'
 
           android {
