@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScreenInsets } from '../../lib/insets';
 
 import { Button } from '../../components/Button';
 import { MapCanvas } from '../../components/MapCanvas';
 import { OwnerCta } from '../../components/OwnerCta';
+import { ReportSheet } from '../../components/ReportSheet';
 import { Photo } from '../../components/Photo';
 import { Stars } from '../../components/Stars';
 import { Avatar, Card, EmptyState, Pill } from '../../components/primitives';
@@ -26,7 +27,9 @@ export default function BusinessScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getBusiness, isSaved, toggleSaved, loadDetail, recordEvent } = useStore();
+  const { getBusiness, isSaved, toggleSaved, loadDetail, recordEvent, reportBusiness } =
+    useStore();
+  const [reporting, setReporting] = useState(false);
 
   const business = getBusiness(id);
   const now = useMemo(() => new Date(), []);
@@ -368,8 +371,25 @@ export default function BusinessScreen() {
               />
             </View>
           )}
+
+          <Pressable
+            onPress={() => setReporting(true)}
+            accessibilityRole="button"
+            style={styles.reportRow}
+            hitSlop={6}
+          >
+            <Ionicons name="flag-outline" size={15} color={colors.textTertiary} />
+            <Text style={styles.reportText}>Report a problem with this listing</Text>
+          </Pressable>
         </View>
       </ScrollView>
+
+      <ReportSheet
+        visible={reporting}
+        subject={business.name}
+        onClose={() => setReporting(false)}
+        onSubmit={(reason) => reportBusiness(business.id, reason)}
+      />
 
       {/* Sticky bottom bar */}
       <View style={[styles.stickyBar, { paddingBottom: insets.bottom + spacing.md }]}>
@@ -608,6 +628,16 @@ const styles = StyleSheet.create({
   replyHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs + 2 },
   replyLabel: { ...typography.caption, color: colors.accentPressed, fontWeight: '700' },
   replyBody: { ...typography.meta, color: colors.textSecondary },
+
+  reportRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs + 2,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  reportText: { ...typography.meta, color: colors.textTertiary },
 
   claimBlock: { paddingHorizontal: spacing.screen, marginBottom: spacing.xxl },
   claimWrap: { marginBottom: spacing.xxl },

@@ -89,6 +89,8 @@ type StoreValue = {
   getBusiness: (id: string) => Business | undefined;
   ownedBusinesses: Business[];
 
+  /** Flags a listing for review. Throws if refused; sends you to sign in. */
+  reportBusiness: (id: string, reason: string) => Promise<void>;
   updateBusiness: (id: string, patch: Partial<Business>) => void;
   /** Lists a new business. Resolves to its id, or throws with a reason. */
   addBusiness: (input: NewBusiness) => Promise<string>;
@@ -415,6 +417,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [origin.lat, origin.lng, loadBusinesses],
   );
 
+  const reportBusiness = useCallback(
+    async (id: string, reason: string) => {
+      const business = businesses.find((b) => b.id === id);
+      if (!profileId) {
+        router.push('/(auth)/sign-in');
+        return;
+      }
+      if (!business?.dbId) return;
+      await api.createReport({
+        targetType: 'business',
+        targetId: business.dbId,
+        reporterId: profileId,
+        reason,
+      });
+    },
+    [businesses, profileId],
+  );
+
   const claimBusiness = useCallback(
     async (id: string) => {
       await api.claimBusinessRemote(id);
@@ -520,6 +540,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updateBusiness,
       addBusiness,
       claimBusiness,
+      reportBusiness,
       replyToReview,
       addReview,
     }),
@@ -528,7 +549,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       viewer, session, signOut, updateViewer,
       notifications, unreadCount, markNotificationRead, markAllNotificationsRead,
       savedIds, isSaved, toggleSaved, recentIds, markViewed,
-      getBusiness, ownedBusinesses, updateBusiness, addBusiness, claimBusiness,
+      getBusiness, ownedBusinesses, updateBusiness, addBusiness, claimBusiness, reportBusiness,
       replyToReview, addReview,
     ],
   );

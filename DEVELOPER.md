@@ -263,6 +263,39 @@ breaks hydration, and the visible symptom is a stale copy of the UI stacked on
 top of the live one — which is exactly the bug that cost an afternoon once
 already.
 
+## The console is not the security boundary
+
+`admin/` is a small Vite app served at `/admin`, built into the landing site
+by the same Vercel deploy. What makes somebody an admin is a row in
+`public.admins`, checked by `is_admin()` inside every policy and every
+`admin_*` function — not anything the console does.
+
+So: hiding a button is a courtesy, never a control. Any new admin capability
+is a function that checks `is_admin()` first and writes to `admin_actions`
+after, and the console is one way to call it. If a capability would still
+work when called with `curl` and an ordinary user's token, it is not finished.
+
+Three consequences worth keeping:
+
+- **No service role key in `admin/`, ever.** It bypasses every policy, and
+  everything in that folder ships to a browser.
+- **There is no INSERT policy on `admins`.** The first admin — and every one
+  after — is added by hand in SQL. A self-serve path to becoming an admin is a
+  self-serve path to owning the directory.
+- **Suspending is a status, not a delete.** `businesses.status` drives
+  visibility through the SELECT policy, which is why `businesses_nearby()`
+  needed no change: it runs as the caller, so it inherits the policy.
+
+## Reporting has to exist for moderation to mean anything
+
+The reports queue was empty by construction until the app grew a way to flag
+something. If you add a new kind of moderatable thing, add the affordance that
+reports it in the same change — a screen full of controls for a queue nothing
+can fill is worse than not having built it.
+
+Reasons are a fixed list, not a text box. A queue of prose takes longer to
+triage than it takes to write.
+
 ## Tests
 
 `npm test`. Prefer tests that need no renderer and no network: `src/lib/` is

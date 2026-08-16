@@ -314,6 +314,29 @@ export async function claimBusinessRemote(slug: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * Flags a listing or a review for somebody to look at.
+ *
+ * Requires an account: a report names its reporter, and an anonymous flag is
+ * both unactionable and trivially spammable.
+ */
+export async function createReport(input: {
+  targetType: 'business' | 'review';
+  targetId: string;
+  reporterId: string;
+  reason: string;
+  detail?: string;
+}) {
+  const { error } = await supabase.from('reports').insert({
+    target_type: input.targetType,
+    target_id: input.targetId,
+    reporter_id: input.reporterId,
+    reason: input.reason,
+    detail: input.detail ?? '',
+  });
+  if (error) throw error;
+}
+
 /** Records that somebody looked at, called, or asked directions to a listing. */
 export async function recordEvent(
   businessDbId: string,
