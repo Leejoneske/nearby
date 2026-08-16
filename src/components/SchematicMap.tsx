@@ -80,8 +80,11 @@ export function SchematicMap({ region, markers, onSelectMarker, style }: Props) 
             return (
               <Pressable
                 key={marker.id}
-                onPress={() => onSelectMarker?.(marker.id)}
-                accessibilityRole="button"
+                onPress={onSelectMarker ? () => onSelectMarker(marker.id) : undefined}
+                // Not a button when nothing is listening. The listing screen
+                // wraps this whole map in one, and a button inside a button is
+                // invalid on the web build and ambiguous to a screen reader.
+                accessibilityRole={onSelectMarker ? 'button' : 'none'}
                 accessibilityLabel={marker.label}
                 style={[
                   styles.markerWrap,
