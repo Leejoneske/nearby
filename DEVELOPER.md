@@ -1,0 +1,142 @@
+# Working on Nearby
+
+Notes for anyone — human or AI — writing code in this repository. `README.md`
+covers what the project is and how to run it; this file covers the rules that
+are not obvious from reading the code.
+
+## What visitors are allowed to read
+
+**Nothing a customer sees may describe how the app is built.**
+
+The landing page and the app are the product talking to a member of the
+public. How the thing is made — the framework, the build, the repository, the
+release process, the file formats, the hosting — is not information they can
+use, and printing it makes a finished product read like somebody's side
+project.
+
+```html
+<!-- Good -->
+<p>The iPhone version is on the way.</p>
+<p>41 MB · Updated Aug 15, 2026</p>
+<span>Coming soon for Android</span>
+
+<!-- Bad -->
+<p>Clone the repo and run npm install, then npx expo start.</p>
+<p>v1.0.0-build.7 · arm64-v8a</p>
+<p>Phone says it cannot install? Get the universal build (62 MB).</p>
+<span>No build published yet. Follow the repository to hear when one lands.</span>
+```
+
+The test: **would this sentence mean anything to somebody who has never
+opened a terminal?** If it would only make sense to the person maintaining the
+project, it belongs in this file, a commit message, or a code comment — not on
+screen.
+
+That includes:
+
+- tool and framework names — Expo, React Native, Gradle, Vercel, GitHub
+- build identifiers, version tags, CPU architectures, file formats
+- repository links in prominent positions, and "view the source" invitations
+- anything phrased as a workaround, a fallback, or a known limitation
+- explanations written for the project owner rather than the customer
+
+Two things are deliberately **not** covered by this rule. Installation help a
+customer genuinely needs — allowing an install, or what a security warning
+means — is customer-facing writing and belongs on the page. And the release
+notes attached to a published build are read by people who went looking for
+them, so they can be as technical as they need to be.
+
+Where a limitation exists and cannot be explained without naming internals,
+the answer is to say less, not to explain more. "The iPhone version is on the
+way" is complete. Why it is not ready is not the visitor's problem.
+
+## Say "we", never name the role
+
+Anything a customer reads is Nearby talking to them. Which part of the system
+acted is not something they can use.
+
+```js
+// Good
+'We could not save that. Try again in a moment.';
+'Your listing is being reviewed.';
+
+// Bad
+'The API returned 500.';
+'An admin will approve your listing.';
+```
+
+## Everything visual comes from the tokens
+
+`src/theme/tokens.ts` holds every colour, space, radius, shadow and type size.
+A raw hex or a magic number in a screen is how two lists end up with subtly
+different row heights, and how a rebrand becomes a week of work.
+
+```tsx
+// Good
+<View style={{ padding: spacing.lg, borderRadius: radii.xl }} />
+
+// Bad
+<View style={{ padding: 16, borderRadius: 20 }} />
+```
+
+The landing page keeps its own copy of the palette in `landing/styles.css`,
+because it cannot import TypeScript. If a brand colour changes, change it in
+both.
+
+## Decisions live outside the components
+
+Whether a shop is open, how results rank, how a distance reads — all of that
+belongs in `src/lib/`, as plain functions with no React and no I/O. That is
+what makes it testable without a renderer or a database, which is why
+`npm test` runs in seconds and needs nothing installed.
+
+A component should read as a description of what is on screen. If it contains
+a rule worth arguing about, the rule is in the wrong file.
+
+```ts
+// Good — the decision is a function, and the test asserts it directly
+export function openState(hours: WeekHours, at: Date): OpenState;
+
+// Bad — the same rule buried in a component, reachable only by rendering it
+const isOpen = hours[now.getDay()] && now.getHours() >= /* ... */;
+```
+
+Anything time-dependent takes the current moment as an argument rather than
+calling `new Date()` internally. Tests cannot pin down a clock they cannot
+reach, and a screen that computes the time on render is a hydration bug on the
+web build.
+
+## Data goes through the store
+
+Screens never import `src/data/businesses.ts`. They use `useStore()`, whose
+mutations — `updateBusiness`, `addBusiness`, `replyToReview`, `addReview` —
+are deliberately shaped like the API calls that will replace them. When the
+backend lands, that one file changes and the screens do not.
+
+## The web build is not the app
+
+`react-native-maps` has no web implementation, so `MapCanvas.web.tsx` stands
+in for it. Anything else that reaches for a native module needs the same
+treatment, or the browser build breaks.
+
+The web build is a plain client-rendered SPA on purpose. The app prints text
+that depends on the current moment, which a server cannot compute at build
+time without disagreeing with the browser at page load. That disagreement
+breaks hydration, and the visible symptom is a stale copy of the UI stacked on
+top of the live one — which is exactly the bug that cost an afternoon once
+already.
+
+## Tests
+
+`npm test`. Prefer tests that need no renderer and no network: `src/lib/` is
+written to be testable that way, and the newer code should stay that way.
+
+`npm run typecheck` before pushing. `tsc` catches the entire class of mistakes
+that a screenshot never will.
+
+## Builds are deliberate, not automatic
+
+Pushing to `main` redeploys the landing page. It does **not** build the app —
+that only happens on a manual run or a `v*` tag, so work in progress can land
+without shipping a half-finished build to anyone. Cut a build when there is
+something worth downloading.

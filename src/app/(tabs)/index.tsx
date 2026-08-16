@@ -27,7 +27,7 @@ import {
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
-  const { businesses, viewer, isSaved, toggleSaved } = useStore();
+  const { businesses, viewer, isSaved, toggleSaved, unreadCount } = useStore();
   const now = useMemo(() => new Date(), []);
 
   const popular = useMemo(
@@ -83,13 +83,20 @@ export default function HomeScreen() {
 
           <Pressable
             style={styles.bell}
+            onPress={() => router.push('/notifications')}
             accessibilityRole="button"
-            accessibilityLabel="Notifications, 2 unread"
+            accessibilityLabel={
+              unreadCount > 0
+                ? `Notifications, ${unreadCount} unread`
+                : 'Notifications'
+            }
           >
             <Ionicons name="notifications-outline" size={21} color={colors.textPrimary} />
-            <View style={styles.bellBadge}>
-              <Text style={styles.bellBadgeText}>2</Text>
-            </View>
+            {unreadCount > 0 ? (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>{unreadCount}</Text>
+              </View>
+            ) : null}
           </Pressable>
         </View>
 

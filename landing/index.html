@@ -394,10 +394,12 @@
           </p>
 
           <!--
-            The APK is the only download that works before the app is on the
-            stores, so it leads. The href is GitHub's stable "latest release"
-            URL, which works with no JavaScript at all; main.js then upgrades
-            it to the exact asset and fills in the version and file size.
+            Android leads until the app is on the stores. The href is the
+            stable latest-release URL, which works with no JavaScript at all;
+            main.js then resolves the exact file and its size.
+
+            Keep the visible copy free of build and tooling detail — see
+            DEVELOPER.md, "What visitors are allowed to read".
           -->
           <a
             class="btn btn--accent btn--download"
@@ -411,15 +413,10 @@
               </svg>
             </span>
           </a>
-          <p class="apk-meta" id="apk-meta">Checking for the latest build&hellip;</p>
-          <p class="apk-alt" id="apk-alt" hidden>
-            Phone says it cannot install?
-            <a id="apk-alt-link" href="#">Get the universal build</a>
-            <span id="apk-alt-size"></span>
-          </p>
+          <p class="apk-meta" id="apk-meta">&nbsp;</p>
 
           <details class="howto">
-            <summary>How to install an APK</summary>
+            <summary>How to install</summary>
             <ol>
               <li>Tap the download button and let the file finish saving.</li>
               <li>
@@ -462,16 +459,7 @@
             </a>
           </div>
 
-          <p class="download__note">
-            Not on the stores yet, so Android is the direct download above.
-            On iPhone, or if you would rather run it from source, clone the
-            repo and use Expo Go: <code>npm install</code>, then
-            <code>npx expo start</code> and scan the QR code.
-          </p>
-
-          <a class="textlink" href="https://github.com/Leejoneske/nearby">
-            View the source on GitHub &rarr;
-          </a>
+          <p class="download__note">The iPhone version is on the way.</p>
 
           <div class="download__fan">
             <div class="device device--flat">

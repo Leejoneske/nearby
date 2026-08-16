@@ -87,6 +87,33 @@ export type Business = {
   };
 };
 
+/** Why a notification was sent. Drives its icon and where tapping it goes. */
+export type NotificationKind = 'review' | 'reply' | 'offer' | 'listing';
+
+export type AppNotification = {
+  id: string;
+  kind: NotificationKind;
+  title: string;
+  body: string;
+  /** ISO date. */
+  date: string;
+  read: boolean;
+  /** Set when tapping should open a business. */
+  businessId?: string;
+};
+
+/**
+ * Who is signed in.
+ *
+ * `loading` exists so a screen can tell "signed out" apart from "we have not
+ * checked yet". Against a real backend that check is a network round trip,
+ * and flashing a signed-out screen during it is a flicker every user notices.
+ */
+export type Session = {
+  status: 'loading' | 'signedIn' | 'signedOut';
+  phone: string | null;
+};
+
 export type SortKey = 'relevance' | 'rating' | 'distance' | 'priceLow';
 
 export type Filters = {

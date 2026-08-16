@@ -21,7 +21,8 @@ import {
 export default function ProfileScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
-  const { viewer, savedIds, recentIds, ownedBusinesses } = useStore();
+  const { viewer, savedIds, recentIds, ownedBusinesses, signOut, unreadCount } =
+    useStore();
 
   return (
     <View style={styles.screen}>
@@ -40,6 +41,7 @@ export default function ProfileScreen() {
             <Text style={styles.email}>{viewer.email}</Text>
           </View>
           <Pressable
+            onPress={() => router.push('/settings/profile')}
             accessibilityRole="button"
             accessibilityLabel="Edit your profile"
             style={styles.editButton}
@@ -122,21 +124,42 @@ export default function ProfileScreen() {
         <SectionHeader title="Settings" />
         <View style={styles.section}>
           <Card style={styles.settingsCard}>
-            <InfoRow icon="location-outline" label="Location" value={viewer.area} onPress={() => {}} />
+            <InfoRow
+              icon="person-outline"
+              label="Your details"
+              value={viewer.name}
+              onPress={() => router.push('/settings/profile')}
+            />
             <InfoRow
               icon="notifications-outline"
               label="Notifications"
-              value="Offers and review replies"
-              onPress={() => {}}
+              value={unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
+              onPress={() => router.push('/notifications')}
             />
-            <InfoRow icon="language-outline" label="Language" value="English" onPress={() => {}} />
-            <InfoRow icon="shield-checkmark-outline" label="Privacy" onPress={() => {}} />
-            <InfoRow icon="help-circle-outline" label="Help and support" onPress={() => {}} last />
+            <InfoRow
+              icon="shield-checkmark-outline"
+              label="Privacy Policy"
+              onPress={() => router.push('/legal/privacy')}
+            />
+            <InfoRow
+              icon="document-text-outline"
+              label="Terms of Use"
+              onPress={() => router.push('/legal/terms')}
+              last
+            />
           </Card>
         </View>
 
         <View style={styles.signOut}>
-          <Button label="Sign out" variant="ghost" size="md" onPress={() => {}} />
+          <Button
+            label="Sign out"
+            variant="ghost"
+            size="md"
+            onPress={() => {
+              signOut();
+              router.replace('/(auth)/sign-in');
+            }}
+          />
         </View>
       </ScrollView>
     </View>

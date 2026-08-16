@@ -8,6 +8,9 @@ One codebase, both stores: Expo / React Native builds an `.aab` for Google Play
 and an `.ipa` for the App Store, and the same screens render in a browser for
 review.
 
+Conventions for anyone writing code here are in **[DEVELOPER.md](DEVELOPER.md)**
+— read that first.
+
 ## Running it
 
 ```bash
@@ -72,9 +75,13 @@ Any other static host works too — serve the `landing/` folder.
 The landing page's Android button points at
 `releases/latest/download/nearby.apk` — a URL GitHub keeps pointing at the
 newest release, so the page never needs redeploying when a build ships. On
-load the page asks the GitHub API which release is current and fills in the
-version, size and date. If no release exists, or the newest one has no APK
-attached, the button says so instead of sending anyone to a 404.
+load the page resolves the current release and fills in the size and date. If
+no release exists, or the newest one has no APK attached, the button says the
+app is not ready rather than sending anyone to a 404.
+
+Keep that copy free of build detail — see DEVELOPER.md, "What visitors are
+allowed to read". The version tag, the architecture and the universal build
+are deliberately not shown to visitors.
 
 To publish a build, run **Actions → Build Android APK → Run workflow**, or
 push a tag:
@@ -96,8 +103,8 @@ is about 105 MB and most of that is weight a given phone discards:
 | `nearby-universal.apk` | 32-bit and 64-bit in one file. Larger, and only needed if the first refuses to install. |
 
 x86 and x86_64 are dropped entirely: those are emulator architectures, so no
-real phone loses support. The site shows the universal build as a secondary
-link whenever a release carries one.
+real phone loses support. The site links only to `nearby.apk`; the universal
+build is there for anyone who needs it from the release page.
 
 That APK is signed with the project's development key. That is fine for
 installing directly — it is not the key Google Play requires, so Play Store
@@ -123,7 +130,13 @@ every screen.
 src/
   app/                  routes (expo-router: the file tree is the navigation)
     (tabs)/             Home, Saved, Map, Recent, Profile
+    (auth)/             phone sign-in and code entry
     business/[id]       public listing page
+    reviews/[id]        every review for a business
+    write-review/[id]   leave a review
+    notifications       reviews, replies and offers
+    settings/profile    edit your details
+    legal/[doc]         privacy policy and terms
     owner/              dashboard, listing editor, review replies
     owner/claim         add or claim a business
     search              results list with filters

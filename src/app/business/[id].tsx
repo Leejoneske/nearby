@@ -153,7 +153,11 @@ export default function BusinessScreen() {
                 business.website ? Linking.openURL(`https://${business.website}`) : undefined
               }
             />
-            <Action icon="chatbubble-ellipses-outline" label="Review" />
+            <Action
+              icon="chatbubble-ellipses-outline"
+              label="Review"
+              onPress={() => router.push(`/write-review/${business.id}`)}
+            />
           </View>
 
           {/* About */}
@@ -230,7 +234,8 @@ export default function BusinessScreen() {
           {/* Reviews */}
           <Section
             title={`Reviews (${business.reviewCount})`}
-            action={business.reviews.length > 2 ? 'See all' : undefined}
+            action="See all"
+            onAction={() => router.push(`/reviews/${business.id}`)}
           >
             <Card style={styles.summaryCard}>
               <View style={styles.summaryLeft}>
@@ -336,17 +341,23 @@ export default function BusinessScreen() {
 function Section({
   title,
   action,
+  onAction,
   children,
 }: {
   title: string;
   action?: string;
+  onAction?: () => void;
   children: React.ReactNode;
 }) {
   return (
     <View style={styles.section}>
       <View style={styles.sectionHead}>
         <Text style={styles.sectionTitle}>{title}</Text>
-        {action ? <Text style={styles.sectionAction}>{action}</Text> : null}
+        {action ? (
+          <Pressable onPress={onAction} hitSlop={8} accessibilityRole="button">
+            <Text style={styles.sectionAction}>{action}</Text>
+          </Pressable>
+        ) : null}
       </View>
       {children}
     </View>

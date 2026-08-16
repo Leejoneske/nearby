@@ -16,7 +16,8 @@ import React, {
 } from 'react';
 
 import { ALL_BUSINESSES, VIEWER_AREA, VIEWER_CITY } from '../data/businesses';
-import type { Business, Review } from '../data/types';
+import { NOTIFICATIONS } from '../data/notifications';
+import type { AppNotification, Business, Review, Session } from '../data/types';
 
 export type Viewer = {
   name: string;
@@ -30,6 +31,17 @@ export type Viewer = {
 type StoreValue = {
   businesses: Business[];
   viewer: Viewer;
+
+  session: Session;
+  /** These become auth calls; the screens calling them do not change. */
+  signIn: (phone: string) => void;
+  signOut: () => void;
+  updateViewer: (patch: Partial<Viewer>) => void;
+
+  notifications: AppNotification[];
+  unreadCount: number;
+  markNotificationRead: (id: string) => void;
+  markAllNotificationsRead: () => void;
 
   savedIds: string[];
   isSaved: (id: string) => boolean;
@@ -63,6 +75,42 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [businesses, setBusinesses] = useState<Business[]>(ALL_BUSINESSES);
   const [savedIds, setSavedIds] = useState<string[]>(['sarabi-kitchen', 'the-cut-room']);
   const [recentIds, setRecentIds] = useState<string[]>(['kahawa-collective', 'iron-yard-gym']);
+  const [viewer, setViewer] = useState<Viewer>(VIEWER);
+  const [notifications, setNotifications] = useState<AppNotification[]>(NOTIFICATIONS);
+
+  // Starts signed in so the app is explorable without a backend. Once auth is
+  // real this begins as `loading` while the stored session is checked.
+  const [session, setSession] = useState<Session>({
+    status: 'signedIn',
+    phone: '+254 712 900 341',
+  });
+
+  const signIn = useCallback((phone: string) => {
+    setSession({ status: 'signedIn', phone });
+  }, []);
+
+  const signOut = useCallback(() => {
+    setSession({ status: 'signedOut', phone: null });
+  }, []);
+
+  const updateViewer = useCallback((patch: Partial<Viewer>) => {
+    setViewer((prev) => ({ ...prev, ...patch }));
+  }, []);
+
+  const markNotificationRead = useCallback((id: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+    );
+  }, []);
+
+  const markAllNotificationsRead = useCallback(() => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  }, []);
+
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => !n.read).length,
+    [notifications],
+  );
 
   const isSaved = useCallback((id: string) => savedIds.includes(id), [savedIds]);
 
@@ -128,7 +176,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const value = useMemo<StoreValue>(
     () => ({
       businesses,
-      viewer: VIEWER,
+      viewer,
+      session,
+      signIn,
+      signOut,
+      updateViewer,
+      notifications,
+      unreadCount,
+      markNotificationRead,
+      markAllNotificationsRead,
       savedIds,
       isSaved,
       toggleSaved,
@@ -143,6 +199,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }),
     [
       businesses,
+      viewer,
+      session,
+      signIn,
+      signOut,
+      updateViewer,
+      notifications,
+      unreadCount,
+      markNotificationRead,
+      markAllNotificationsRead,
       savedIds,
       isSaved,
       toggleSaved,

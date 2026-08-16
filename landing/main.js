@@ -16,11 +16,11 @@
   /*
    * APK download.
    *
-   * The button ships pointing at GitHub's stable "latest release" URL, so it
-   * works with JavaScript off. When it runs, this asks the GitHub API which
-   * release is actually current and rewrites the button with the exact asset,
-   * its version and its size — and, more importantly, says so plainly when no
-   * APK has been published rather than sending someone to a 404.
+   * The button ships pointing at the stable "latest release" URL, so it works
+   * with JavaScript off. When it runs, this resolves the current release and
+   * rewrites the button with the exact file and its size — and, more
+   * importantly, says plainly that it is not ready when there is nothing to
+   * download, rather than sending someone to a 404.
    */
   var REPO = 'Leejoneske/nearby';
 
@@ -30,25 +30,22 @@
     return mb >= 10 ? Math.round(mb) + ' MB' : mb.toFixed(1) + ' MB';
   }
 
+  // Nothing here names a tool, a repository or a file format: the visitor is
+  // told whether they can install the app, and nothing about how it is made.
+  // See DEVELOPER.md, "What visitors are allowed to read".
   function setUnavailable(meta, button, label) {
-    if (meta) {
-      meta.textContent =
-        'No Android build published yet. Follow the repository to hear when the first one lands.';
-    }
+    if (meta) meta.textContent = 'Not quite ready. Check back shortly.';
     if (button) {
       button.setAttribute('aria-disabled', 'true');
       button.classList.add('is-disabled');
-      button.href = 'https://github.com/' + REPO + '/releases';
+      button.removeAttribute('href');
     }
-    if (label) label.textContent = 'Android build coming soon';
+    if (label) label.textContent = 'Coming soon for Android';
   }
 
   var apkButton = document.getElementById('apk-download');
   var apkMeta = document.getElementById('apk-meta');
   var apkLabel = document.getElementById('apk-label');
-  var apkAlt = document.getElementById('apk-alt');
-  var apkAltLink = document.getElementById('apk-alt-link');
-  var apkAltSize = document.getElementById('apk-alt-size');
 
   if (apkButton && window.fetch) {
     fetch('https://api.github.com/repos/' + REPO + '/releases/latest', {
@@ -62,46 +59,38 @@
       .then(function (release) {
         var assets = release.assets || [];
         var apk = null;
-        var universal = null;
+        var fallback = null;
 
-        // The 64-bit build is the primary download; the universal build is
-        // the escape hatch for older 32-bit phones.
+        // Prefer the smaller per-architecture file; the larger one that runs
+        // anywhere is the backup if that is all a release carries.
         for (var i = 0; i < assets.length; i += 1) {
           var asset = assets[i];
           if (!/\.apk$/i.test(asset.name)) continue;
           if (/universal/i.test(asset.name)) {
-            universal = asset;
+            fallback = asset;
           } else if (!apk) {
             apk = asset;
           }
         }
-        // A release carrying only a universal build is still downloadable.
-        if (!apk) apk = universal;
-        if (!apk) throw new Error('release has no apk asset');
+        if (!apk) apk = fallback;
+        if (!apk) throw new Error('release has no installable file');
 
         apkButton.href = apk.browser_download_url;
         if (apkLabel) apkLabel.textContent = 'Download for Android';
 
-        if (universal && universal !== apk && apkAlt && apkAltLink) {
-          apkAltLink.href = universal.browser_download_url;
-          if (apkAltSize) {
-            var altSize = formatBytes(universal.size);
-            apkAltSize.textContent = altSize ? '(' + altSize + ')' : '';
-          }
-          apkAlt.hidden = false;
-        }
-
+        // Size and date only. The version string is a build label, not
+        // something a visitor has any use for.
         var parts = [];
-        if (release.tag_name) parts.push(release.tag_name);
         var size = formatBytes(apk.size);
         if (size) parts.push(size);
         if (release.published_at) {
           parts.push(
-            new Date(release.published_at).toLocaleDateString(undefined, {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-            }),
+            'Updated ' +
+              new Date(release.published_at).toLocaleDateString(undefined, {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              }),
           );
         }
         if (apkMeta) apkMeta.textContent = parts.join(' · ');
@@ -111,7 +100,7 @@
       });
   } else if (apkButton) {
     // No fetch: leave the stable URL alone and say nothing misleading.
-    if (apkMeta) apkMeta.textContent = 'Latest Android build';
+    if (apkMeta) apkMeta.textContent = '\u00a0';
   }
 
   /*
