@@ -747,6 +747,22 @@ section {
   min-height: 20px;
 }
 
+.apk-alt {
+  font-size: 13px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  margin-top: -8px;
+}
+
+.apk-alt[hidden] {
+  display: none;
+}
+
+.apk-alt a {
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
 .howto {
   /* Fixed width, so opening it does not make the box jump wider. */
   width: min(52ch, 100%);

@@ -47,6 +47,35 @@ jobs:
       - name: Generate the native Android project
         run: npx expo prebuild --platform android --no-install
 
+      # A single APK carrying native code for every CPU is ~105 MB, most of
+      # which any given phone throws away. Two changes cut that down:
+      #
+      #   1. Drop x86 and x86_64 — those are emulator architectures, not
+      #      phones, so nothing real loses support.
+      #   2. Split the rest per architecture, and keep a universal build as
+      #      a fallback for anything unusual.
+      #
+      # The splits block is appended rather than edited into the middle of the
+      # generated file: Gradle merges repeated `android { }` blocks, so this
+      # cannot be broken by upstream template changes.
+      - name: Build one APK per architecture
+        run: |
+          sed -i 's/^reactNativeArchitectures=.*/reactNativeArchitectures=armeabi-v7a,arm64-v8a/' android/gradle.properties
+          cat >> android/app/build.gradle <<'GRADLE'
+
+          android {
+              splits {
+                  abi {
+                      reset()
+                      enable true
+                      universalApk true
+                      include "armeabi-v7a", "arm64-v8a"
+                  }
+              }
+          }
+          GRADLE
+          grep '^reactNativeArchitectures' android/gradle.properties
+
       # android/ is generated, so the executable bit is not carried by git.
       - name: Make gradlew executable
         run: chmod +x android/gradlew
@@ -55,8 +84,18 @@ jobs:
         run: ./gradlew assembleRelease --no-daemon
         working-directory: android
 
-      - name: Stage the asset
-        run: cp android/app/build/outputs/apk/release/app-release.apk nearby.apk
+      # nearby.apk is the 64-bit build and keeps the stable download URL,
+      # because that is what almost every phone in use needs. The universal
+      # build is published alongside it for older 32-bit devices.
+      - name: Stage the assets
+        run: |
+          cd android/app/build/outputs/apk/release
+          ls -la
+          cp app-arm64-v8a-release.apk "$GITHUB_WORKSPACE/nearby.apk"
+          cp app-universal-release.apk "$GITHUB_WORKSPACE/nearby-universal.apk"
+          cd "$GITHUB_WORKSPACE"
+          echo "arm64:     $(du -h nearby.apk | cut -f1)"
+          echo "universal: $(du -h nearby-universal.apk | cut -f1)"
 
       - name: Name this build
         id: meta
@@ -67,29 +106,38 @@ jobs:
             echo "tag=v${{ steps.version.outputs.value }}-build.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
           fi
 
-      # Keep the APK even if publishing the release fails.
+      # Keep the APKs even if publishing the release fails.
       - uses: actions/upload-artifact@v4
         with:
           name: nearby-apk
-          path: nearby.apk
+          path: |
+            nearby.apk
+            nearby-universal.apk
 
       - name: Publish the release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
           name: Nearby ${{ steps.meta.outputs.tag }}
-          files: nearby.apk
+          files: |
+            nearby.apk
+            nearby-universal.apk
           generate_release_notes: true
           body: |
             **Android APK — install it directly.**
 
-            Download `nearby.apk` below, open it on your phone, and allow
-            installing from this source when Android asks. Play Protect may
-            warn that the app is unknown, because it is not on the Play Store
-            yet; choose **Install anyway**.
+            Most people want **`nearby.apk`** — the 64-bit build, which every
+            Android phone from roughly 2016 onwards uses.
+
+            If that one refuses to install, your phone is 32-bit only: take
+            **`nearby-universal.apk`** instead. It is larger but runs anywhere.
+
+            Open the file on your phone and allow installing from this source
+            when Android asks. Play Protect may warn that the app is unknown,
+            because it is not on the Play Store yet; choose **Install anyway**.
 
             Android 8 or newer. iPhone cannot install APKs.
 
-            This build is signed with the project's development key, which is
-            fine for installing directly but is not the key the Play Store
+            These builds are signed with the project's development key, which
+            is fine for installing directly but is not the key the Play Store
             requires — Play Store releases go through `eas build`.

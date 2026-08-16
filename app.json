@@ -21,7 +21,6 @@
     },
     "android": {
       "package": "app.nearby.directory",
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "adaptiveIcon": {
         "backgroundColor": "#FF5A1F",

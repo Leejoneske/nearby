@@ -84,8 +84,20 @@ git tag v1.0.1 && git push origin v1.0.1
 ```
 
 The workflow runs `expo prebuild` and `gradlew assembleRelease` on a GitHub
-runner, then attaches `nearby.apk` to a release. It needs no secrets and no
-Expo account.
+runner, then attaches the APKs to a release. It needs no secrets and no Expo
+account.
+
+Two builds come out of it, because one APK carrying native code for every CPU
+is about 105 MB and most of that is weight a given phone discards:
+
+| Asset | Who it is for |
+| --- | --- |
+| `nearby.apk` | 64-bit ARM — every Android phone from roughly 2016 on. The stable URL and the site's main button point here. |
+| `nearby-universal.apk` | 32-bit and 64-bit in one file. Larger, and only needed if the first refuses to install. |
+
+x86 and x86_64 are dropped entirely: those are emulator architectures, so no
+real phone loses support. The site shows the universal build as a secondary
+link whenever a release carries one.
 
 That APK is signed with the project's development key. That is fine for
 installing directly — it is not the key Google Play requires, so Play Store

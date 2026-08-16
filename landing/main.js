@@ -46,6 +46,9 @@
   var apkButton = document.getElementById('apk-download');
   var apkMeta = document.getElementById('apk-meta');
   var apkLabel = document.getElementById('apk-label');
+  var apkAlt = document.getElementById('apk-alt');
+  var apkAltLink = document.getElementById('apk-alt-link');
+  var apkAltSize = document.getElementById('apk-alt-size');
 
   if (apkButton && window.fetch) {
     fetch('https://api.github.com/repos/' + REPO + '/releases/latest', {
@@ -59,16 +62,34 @@
       .then(function (release) {
         var assets = release.assets || [];
         var apk = null;
+        var universal = null;
+
+        // The 64-bit build is the primary download; the universal build is
+        // the escape hatch for older 32-bit phones.
         for (var i = 0; i < assets.length; i += 1) {
-          if (/\.apk$/i.test(assets[i].name)) {
-            apk = assets[i];
-            break;
+          var asset = assets[i];
+          if (!/\.apk$/i.test(asset.name)) continue;
+          if (/universal/i.test(asset.name)) {
+            universal = asset;
+          } else if (!apk) {
+            apk = asset;
           }
         }
+        // A release carrying only a universal build is still downloadable.
+        if (!apk) apk = universal;
         if (!apk) throw new Error('release has no apk asset');
 
         apkButton.href = apk.browser_download_url;
         if (apkLabel) apkLabel.textContent = 'Download for Android';
+
+        if (universal && universal !== apk && apkAlt && apkAltLink) {
+          apkAltLink.href = universal.browser_download_url;
+          if (apkAltSize) {
+            var altSize = formatBytes(universal.size);
+            apkAltSize.textContent = altSize ? '(' + altSize + ')' : '';
+          }
+          apkAlt.hidden = false;
+        }
 
         var parts = [];
         if (release.tag_name) parts.push(release.tag_name);
