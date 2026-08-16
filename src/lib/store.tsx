@@ -26,11 +26,12 @@ import React, {
   type ReactNode,
 } from 'react';
 
-import { DEFAULT_AREA, DEFAULT_CITY, DEFAULT_ORIGIN } from '../data/location';
+import { DEFAULT_AREA, DEFAULT_CITY } from '../data/location';
 import type { AppNotification, Business, Review, Session } from '../data/types';
 import * as api from './api';
 import { initialsOf } from './format';
 import { supabase } from './supabase';
+import { useOrigin } from './useOrigin';
 
 export type Viewer = {
   name: string;
@@ -57,6 +58,12 @@ type StoreValue = {
   /** Set when the last load failed, so a screen can offer to retry. */
   error: string | null;
   refresh: () => Promise<void>;
+  /** True once distances are measured from the device rather than the city. */
+  locationPrecise: boolean;
+
+  /** Loads the reviews for one listing, which lists do not carry. */
+  loadDetail: (id: string) => Promise<void>;
+  recordEvent: (dbId: string, kind: 'view' | 'call' | 'directions') => void;
 
   viewer: Viewer;
   session: Session;
@@ -87,13 +94,22 @@ type StoreValue = {
 const StoreContext = createContext<StoreValue | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
+  const { origin, ready: originReady, precise, city, area } = useOrigin();
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [session, setSession] = useState<Session>({ status: 'loading', phone: null });
   const [profileId, setProfileId] = useState<string | null>(null);
-  const [viewer, setViewer] = useState<Viewer>(GUEST);
+  // Only the parts a person edits are stored. Where they are comes from the
+  // device, so it is derived below rather than copied into state and kept in
+  // step with an effect.
+  const [profile, setProfile] = useState({
+    name: GUEST.name,
+    initials: GUEST.initials,
+    email: GUEST.email,
+    verified: GUEST.verified,
+  });
 
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [recentIds, setRecentIds] = useState<string[]>([]);
@@ -104,7 +120,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const loadBusinesses = useCallback(async () => {
     try {
       setError(null);
-      const rows = await api.fetchNearby(DEFAULT_ORIGIN, { radiusM: 50_000 });
+      const rows = await api.fetchNearby(origin, { radiusM: 50_000 });
       setBusinesses(rows);
     } catch (e) {
       // Deliberately not the raw Postgres message — that is for the log.
@@ -113,16 +129,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [origin]);
 
-  // The fetch is wrapped rather than called straight from the effect: the
-  // state updates then happen inside the async function, after an await,
-  // which is the shape the hooks rules expect for loading external data.
+  /*
+   * Waits for the device to answer before the first fetch, then refetches if
+   * the answer changes. Loading twice — once from the city centre and again
+   * from the real position — would make every distance on screen jump.
+   *
+   * The state updates sit inside the async function, after an await, which is
+   * the shape the hooks rules expect for loading from somewhere external.
+   */
   useEffect(() => {
+    if (!originReady) return;
     let alive = true;
     (async () => {
       const rows = await api
-        .fetchNearby(DEFAULT_ORIGIN, { radiusM: 50_000 })
+        .fetchNearby(origin, { radiusM: 50_000 })
         .catch((e) => {
           console.warn('[store] loading businesses failed', e);
           return null;
@@ -139,6 +161,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => {
       alive = false;
     };
+  }, [originReady, origin]);
+
+  /*
+   * Lists do not carry reviews — fetching them for every row would be a query
+   * per listing. The detail screens ask for them when they open, and the
+   * result is merged into the listing already in memory.
+   */
+  const loadDetail = useCallback(
+    async (id: string) => {
+      try {
+        const full = await api.fetchBusiness(id, origin, profileId);
+        if (!full) return;
+        setBusinesses((prev) => {
+          const known = prev.some((b) => b.id === id);
+          return known ? prev.map((b) => (b.id === id ? { ...b, ...full } : b)) : [...prev, full];
+        });
+      } catch (e) {
+        console.warn('[store] loading the listing failed', e);
+      }
+    },
+    // Depends only on things that change rarely, so a screen can put this in
+    // an effect's dependencies without re-fetching on every render.
+    [origin, profileId],
+  );
+
+  /**
+   * Takes the database id rather than the slug: the caller already has the
+   * listing in hand, and looking it up here would tie this callback to the
+   * whole list and re-create it on every change.
+   */
+  const recordEvent = useCallback((dbId: string, kind: 'view' | 'call' | 'directions') => {
+    void api.recordEvent(dbId, kind);
   }, []);
 
   /* --------------------------------------------------------------- auth -- */
@@ -159,7 +213,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!next?.user) {
         setSession({ status: 'signedOut', phone: null });
         setProfileId(null);
-        setViewer(GUEST);
+        setProfile({
+          name: GUEST.name,
+          initials: GUEST.initials,
+          email: GUEST.email,
+          verified: GUEST.verified,
+        });
         setSavedIds([]);
         setNotifications([]);
         return;
@@ -202,19 +261,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   }, []);
 
-  const updateViewer = useCallback((patch: Partial<Viewer>) => {
-    setViewer((prev) => {
-      const next = { ...prev, ...patch };
-      if (patch.name) next.initials = initialsOf(patch.name);
-      if (profileId) {
-        void supabase
-          .from('profiles')
-          .update({ name: next.name, email: next.email, area: next.area })
-          .eq('id', profileId);
-      }
-      return next;
-    });
-  }, [profileId]);
+  const updateViewer = useCallback(
+    (patch: Partial<Viewer>) => {
+      setProfile((prev) => {
+        const next = {
+          ...prev,
+          ...(patch.name !== undefined ? { name: patch.name, initials: initialsOf(patch.name) } : {}),
+          ...(patch.email !== undefined ? { email: patch.email } : {}),
+        };
+        if (profileId) {
+          void supabase
+            .from('profiles')
+            .update({ name: next.name, email: next.email, area: patch.area })
+            .eq('id', profileId)
+            .then(({ error: e }) => {
+              if (e) console.warn('[store] saving your profile failed', e);
+            });
+        }
+        return next;
+      });
+    },
+    [profileId],
+  );
+
+  const viewer = useMemo<Viewer>(
+    () => ({ ...profile, city, area }),
+    [profile, city, area],
+  );
 
   /* -------------------------------------------------------------- saved -- */
 
@@ -368,6 +441,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       loading,
       error,
       refresh: loadBusinesses,
+      locationPrecise: precise,
+      loadDetail,
+      recordEvent,
       viewer,
       session,
       signOut,
@@ -389,7 +465,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addReview,
     }),
     [
-      businesses, loading, error, loadBusinesses,
+      businesses, loading, error, loadBusinesses, precise, loadDetail, recordEvent,
       viewer, session, signOut, updateViewer,
       notifications, unreadCount, markNotificationRead, markAllNotificationsRead,
       savedIds, isSaved, toggleSaved, recentIds, markViewed,

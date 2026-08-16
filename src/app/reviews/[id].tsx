@@ -1,7 +1,7 @@
 /** Every review for one business, with the rating breakdown and a sort. */
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '../../components/Button';
@@ -38,11 +38,15 @@ export default function AllReviewsScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getBusiness } = useStore();
+  const { getBusiness, loadDetail } = useStore();
 
   const business = getBusiness(id);
   const [sort, setSort] = useState<SortKey>('recent');
   const now = useMemo(() => new Date(), []);
+
+  useEffect(() => {
+    if (id) void loadDetail(id);
+  }, [id, loadDetail]);
 
   const reviews = useMemo(
     () => (business ? sortReviews(business.reviews, sort) : []),

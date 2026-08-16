@@ -249,6 +249,47 @@ export async function updateBusinessRemote(dbId: string, patch: Record<string, u
   if (error) throw error;
 }
 
+/** Records that somebody looked at, called, or asked directions to a listing. */
+export async function recordEvent(
+  businessDbId: string,
+  kind: 'view' | 'call' | 'directions',
+) {
+  // Fire and forget: a lost analytics event must never interrupt a tap.
+  const { error } = await supabase.rpc('record_business_event', {
+    in_business_id: businessDbId,
+    in_kind: kind,
+  });
+  if (error) console.warn('[api] recording an event failed', error);
+}
+
+export type Insights = {
+  viewsThisWeek: number;
+  viewsLastWeek: number;
+  callsThisWeek: number;
+  directionsThisWeek: number;
+  searchAppearances: number;
+};
+
+/** Counts for a listing. The database refuses this unless you own it. */
+export async function fetchInsights(businessDbId: string): Promise<Insights | null> {
+  const { data, error } = await supabase
+    .rpc('business_insights', { in_business_id: businessDbId })
+    .maybeSingle();
+  if (error) {
+    console.warn('[api] loading insights failed', error);
+    return null;
+  }
+  if (!data) return null;
+  const row = data as Record<string, number>;
+  return {
+    viewsThisWeek: row.views_this_week ?? 0,
+    viewsLastWeek: row.views_last_week ?? 0,
+    callsThisWeek: row.calls_this_week ?? 0,
+    directionsThisWeek: row.directions_this_week ?? 0,
+    searchAppearances: row.search_appearances ?? 0,
+  };
+}
+
 export async function fetchNotifications(profileId: string): Promise<AppNotification[]> {
   const { data, error } = await supabase
     .from('notifications')

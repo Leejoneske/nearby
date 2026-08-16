@@ -125,10 +125,6 @@ export const absoluteFill = {
   bottom: 0,
 } as const;
 
-/** Minimum tap target. Below this, thumbs miss. */
-export const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 } as const;
-export const MIN_TAP = 44;
-
 /** Height of the floating tab bar, so screens can pad their scroll content. */
 export const TAB_BAR_HEIGHT = 68;
 export const TAB_BAR_INSET = 16;

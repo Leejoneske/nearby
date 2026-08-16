@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScreenInsets } from '../../lib/insets';
 
@@ -25,10 +25,22 @@ export default function BusinessScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getBusiness, isSaved, toggleSaved } = useStore();
+  const { getBusiness, isSaved, toggleSaved, loadDetail, recordEvent } = useStore();
 
   const business = getBusiness(id);
   const now = useMemo(() => new Date(), []);
+
+  // Lists carry no reviews, so the page asks for them as it opens.
+  useEffect(() => {
+    if (id) void loadDetail(id);
+  }, [id, loadDetail]);
+
+  // The view is recorded once the listing is in hand, which is what gives the
+  // owner's dashboard something real to count.
+  const dbId = business?.dbId;
+  useEffect(() => {
+    if (dbId) recordEvent(dbId, 'view');
+  }, [dbId, recordEvent]);
 
   // Every hook has to run before the early return below. Navigating from a
   // listing that exists to one that does not would otherwise change the hook
@@ -146,12 +158,18 @@ export default function BusinessScreen() {
               icon="call"
               label="Call"
               primary
-              onPress={() => callPhone(business.phone)}
+              onPress={() => {
+                if (business.dbId) recordEvent(business.dbId, 'call');
+                callPhone(business.phone);
+              }}
             />
             <Action
               icon="navigate"
               label="Directions"
-              onPress={() => openDirections(business.lat, business.lng, business.name)}
+              onPress={() => {
+                if (business.dbId) recordEvent(business.dbId, 'directions');
+                openDirections(business.lat, business.lng, business.name);
+              }}
             />
             <Action
               icon="globe-outline"

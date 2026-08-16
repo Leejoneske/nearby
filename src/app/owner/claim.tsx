@@ -81,13 +81,6 @@ export default function ClaimScreen() {
       reviews: [],
       ownedByViewer: true,
       verified: false,
-      insights: {
-        viewsThisWeek: 0,
-        viewsLastWeek: 0,
-        callsThisWeek: 0,
-        directionsThisWeek: 0,
-        searchAppearances: 0,
-      },
     };
     addBusiness(created);
     setDone(true);

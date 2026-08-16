@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScreenInsets } from '../../../lib/insets';
 
@@ -9,6 +9,7 @@ import { Stars } from '../../../components/Stars';
 import { Avatar, Card, EmptyState, Pill } from '../../../components/primitives';
 import { formatDelta, formatRelativeDate } from '../../../lib/format';
 import { openState } from '../../../lib/hours';
+import * as api from '../../../lib/api';
 import { useStore } from '../../../lib/store';
 import { colors, radii, shadows, spacing, typography } from '../../../theme/tokens';
 
@@ -20,6 +21,30 @@ export default function OwnerDashboard() {
 
   const business = getBusiness(id);
   const now = useMemo(() => new Date(), []);
+
+  /*
+   * Counts come from recorded events, and the database refuses them to
+   * anybody but the owner. A brand new listing legitimately has none, so
+   * `null` means "not loaded" and zeroes mean "nobody yet" — the screen says
+   * different things for each.
+   */
+  const [insights, setInsights] = useState<api.Insights | null>(null);
+  const [insightsLoaded, setInsightsLoaded] = useState(false);
+
+  useEffect(() => {
+    const dbId = business?.dbId;
+    if (!dbId) return;
+    let alive = true;
+    (async () => {
+      const data = await api.fetchInsights(dbId);
+      if (!alive) return;
+      setInsights(data);
+      setInsightsLoaded(true);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [business?.dbId]);
 
   if (!business) {
     return (
@@ -33,7 +58,6 @@ export default function OwnerDashboard() {
     );
   }
 
-  const insights = business.insights;
   const state = openState(business.hours, now);
   const unanswered = business.reviews.filter((r) => !r.ownerReply);
 
@@ -89,31 +113,43 @@ export default function OwnerDashboard() {
         </View>
 
         {/* Insights */}
+        <Text style={styles.sectionTitle}>This week</Text>
         {insights ? (
-          <>
-            <Text style={styles.sectionTitle}>This week</Text>
-            <View style={styles.statGrid}>
-              <StatTile
-                icon="eye"
-                value={insights.viewsThisWeek.toLocaleString()}
-                label="Profile views"
-                delta={formatDelta(insights.viewsThisWeek, insights.viewsLastWeek)}
-                positive={insights.viewsThisWeek >= insights.viewsLastWeek}
-              />
-              <StatTile
-                icon="search"
-                value={insights.searchAppearances.toLocaleString()}
-                label="Search appearances"
-              />
-              <StatTile icon="call" value={String(insights.callsThisWeek)} label="Calls" />
-              <StatTile
-                icon="navigate"
-                value={String(insights.directionsThisWeek)}
-                label="Direction requests"
-              />
-            </View>
-          </>
-        ) : null}
+          <View style={styles.statGrid}>
+            <StatTile
+              icon="eye"
+              value={insights.viewsThisWeek.toLocaleString()}
+              label="Profile views"
+              delta={
+                insights.viewsLastWeek > 0
+                  ? formatDelta(insights.viewsThisWeek, insights.viewsLastWeek)
+                  : undefined
+              }
+              positive={insights.viewsThisWeek >= insights.viewsLastWeek}
+            />
+            <StatTile icon="call" value={String(insights.callsThisWeek)} label="Calls" />
+            <StatTile
+              icon="navigate"
+              value={String(insights.directionsThisWeek)}
+              label="Direction requests"
+            />
+            <StatTile
+              icon="chatbubbles"
+              value={String(business.reviewCount)}
+              label="Reviews"
+            />
+          </View>
+        ) : (
+          <View style={styles.section}>
+            <Card>
+              <Text style={styles.quietNote}>
+                {insightsLoaded
+                  ? 'Nobody has looked at this listing yet. Numbers appear here as people find you.'
+                  : 'Counting…'}
+              </Text>
+            </Card>
+          </View>
+        )}
 
         {/* Manage */}
         <Text style={styles.sectionTitle}>Manage</Text>
@@ -367,6 +403,7 @@ const styles = StyleSheet.create({
   },
   badgeText: { ...typography.caption, fontSize: 11, color: colors.textOnAccent, fontWeight: '700' },
 
+  quietNote: { ...typography.body, color: colors.textSecondary },
   caughtUp: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   caughtUpText: { ...typography.body, color: colors.textSecondary, flex: 1 },
 

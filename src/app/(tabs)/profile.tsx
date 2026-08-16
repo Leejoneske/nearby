@@ -8,7 +8,7 @@ import { Photo } from '../../components/Photo';
 import { Avatar, Card, InfoRow, Pill, SectionHeader } from '../../components/primitives';
 import { appVersionLabel } from '../../lib/appInfo';
 import { resetIntro } from '../../lib/firstRun';
-import { formatDelta } from '../../lib/format';
+
 import { useStore } from '../../lib/store';
 import {
   colors,
@@ -65,7 +65,6 @@ export default function ProfileScreen() {
         <SectionHeader title="Your businesses" />
         <View style={styles.section}>
           {ownedBusinesses.map((business) => {
-            const insights = business.insights;
             return (
               <Pressable
                 key={business.id}
@@ -95,15 +94,7 @@ export default function ProfileScreen() {
                     ) : (
                       <Pill label="Unverified" icon="alert-circle" tone="danger" />
                     )}
-                    {insights ? (
-                      <Pill
-                        label={`${insights.viewsThisWeek.toLocaleString()} views · ${formatDelta(
-                          insights.viewsThisWeek,
-                          insights.viewsLastWeek,
-                        )}`}
-                        tone="accent"
-                      />
-                    ) : null}
+                    <Pill label={`${business.reviewCount} reviews`} tone="accent" />
                   </View>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />

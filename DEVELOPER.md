@@ -140,6 +140,45 @@ revoked from `anon` and `authenticated` unless they are genuinely meant to be
 called from the app. Run the Supabase security advisor after any schema change
 — it catches exactly this.
 
+## Two rules the linter enforces, and why
+
+**Never mutate a ref during render, and never call setState straight from an
+effect body.** Both are easy to reach for and both broke this codebase once.
+
+A ref written during render was covering for a callback that would otherwise
+be rebuilt on every list change and re-trigger the effect that used it. The
+real fix was to stop needing the lookup: pass the id the caller already holds,
+so the callback has no dependencies at all.
+
+State synced from an effect was copying the device's place name into the
+viewer. The fix was to derive it — `viewer` is now computed from the stored
+profile plus wherever the device says it is, so there is nothing to keep in
+step.
+
+Both are the same lesson: if a value can be computed from what you already
+have, computing it is cheaper and safer than storing a second copy.
+
+## Lists do not carry everything
+
+`businesses_nearby()` returns listings without their reviews, because
+fetching reviews for every row is a query per listing. Detail screens call
+`loadDetail(id)` when they open, which fetches the listing with its reviews
+and merges it into the copy already in memory.
+
+This is worth remembering when adding a field: if it is expensive per row, it
+belongs on the detail fetch, not the list.
+
+## Numbers must be measured
+
+The owner dashboard once read a `insights` field that nothing ever wrote, so
+the section rendered blank and typechecked perfectly. Counts now come from
+`business_events`, recorded when somebody opens a listing, calls, or asks for
+directions.
+
+If a number cannot be measured yet, show nothing and say so — never a
+plausible-looking figure. "Nobody has looked at this listing yet" is a real
+answer; a fabricated view count is not.
+
 ## The web build is not the app
 
 `react-native-maps` has no web implementation, so `MapCanvas.web.tsx` stands

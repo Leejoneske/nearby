@@ -80,14 +80,6 @@ export type Business = {
   verified?: boolean;
   /** Promotion shown in the "Today's offers" rail. */
   offer?: { label: string; detail: string };
-  /** Owner-facing stats, only populated for listings the viewer owns. */
-  insights?: {
-    viewsThisWeek: number;
-    viewsLastWeek: number;
-    callsThisWeek: number;
-    directionsThisWeek: number;
-    searchAppearances: number;
-  };
 };
 
 /** Why a notification was sent. Drives its icon and where tapping it goes. */
