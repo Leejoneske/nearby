@@ -212,7 +212,7 @@ export default function ClaimScreen() {
 
         {step === 2 ? (
           <View style={styles.group}>
-            <Text style={styles.stepTitle}>Let's confirm it is yours</Text>
+            <Text style={styles.stepTitle}>Let&apos;s confirm it is yours</Text>
             <Text style={styles.stepBody}>
               Verification stops someone else editing your listing. Pick whichever is easiest.
             </Text>

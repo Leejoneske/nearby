@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScreenInsets } from '../../lib/insets';
 
 import { Button } from '../../components/Button';
@@ -17,6 +17,7 @@ import {
   formatReviewCount,
 } from '../../lib/format';
 import { DAY_NAMES, formatDayRange, openState } from '../../lib/hours';
+import { callPhone, openDirections, openWebsite } from '../../lib/openLink';
 import { useStore } from '../../lib/store';
 import { absoluteFill, colors, radii, shadows, spacing, typography } from '../../theme/tokens';
 
@@ -28,6 +29,18 @@ export default function BusinessScreen() {
 
   const business = getBusiness(id);
   const now = useMemo(() => new Date(), []);
+
+  // Every hook has to run before the early return below. Navigating from a
+  // listing that exists to one that does not would otherwise change the hook
+  // order between renders, which React treats as a fatal error.
+  const ratingBreakdown = useMemo(() => {
+    const counts = [0, 0, 0, 0, 0];
+    business?.reviews.forEach((r) => {
+      const bucket = Math.min(4, Math.max(0, Math.round(r.rating) - 1));
+      counts[bucket] += 1;
+    });
+    return counts;
+  }, [business]);
 
   if (!business) {
     return (
@@ -48,15 +61,6 @@ export default function BusinessScreen() {
   const saved = isSaved(business.id);
   const category = categoryOf(business.categoryId);
   const today = new Date().getDay();
-
-  const ratingBreakdown = useMemo(() => {
-    const counts = [0, 0, 0, 0, 0];
-    business.reviews.forEach((r) => {
-      const bucket = Math.min(4, Math.max(0, Math.round(r.rating) - 1));
-      counts[bucket] += 1;
-    });
-    return counts;
-  }, [business.reviews]);
 
   return (
     <View style={styles.screen}>
@@ -142,16 +146,18 @@ export default function BusinessScreen() {
               icon="call"
               label="Call"
               primary
-              onPress={() => Linking.openURL(`tel:${business.phone.replace(/\s/g, '')}`)}
+              onPress={() => callPhone(business.phone)}
             />
-            <Action icon="navigate" label="Directions" />
+            <Action
+              icon="navigate"
+              label="Directions"
+              onPress={() => openDirections(business.lat, business.lng, business.name)}
+            />
             <Action
               icon="globe-outline"
               label="Website"
               disabled={!business.website}
-              onPress={() =>
-                business.website ? Linking.openURL(`https://${business.website}`) : undefined
-              }
+              onPress={() => business.website && openWebsite(business.website)}
             />
             <Action
               icon="chatbubble-ellipses-outline"
@@ -332,6 +338,7 @@ export default function BusinessScreen() {
           size="md"
           fullWidth={false}
           style={styles.stickyButton}
+          onPress={() => openDirections(business.lat, business.lng, business.name)}
         />
       </View>
     </View>

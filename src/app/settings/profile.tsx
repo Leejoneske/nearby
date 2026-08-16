@@ -17,7 +17,7 @@ import { Avatar } from '../../components/primitives';
 import { initialsOf } from '../../lib/format';
 import { useScreenInsets } from '../../lib/insets';
 import { useStore } from '../../lib/store';
-import { colors, spacing, typography } from '../../theme/tokens';
+import { colors, radii, spacing, typography } from '../../theme/tokens';
 
 /** Accepts an empty address; a profile does not have to carry one. */
 export function isValidEmail(value: string): boolean {
@@ -110,13 +110,13 @@ export default function EditProfileScreen() {
             placeholder="Neighbourhood, city"
             hint="Used to sort results by how close they are."
           />
-          <Field
-            label="Phone"
-            value={session.phone ?? 'Not set'}
-            select
-            onPress={() => {}}
-            hint="Your phone number is how you sign in. Contact us to change it."
-          />
+          <View style={styles.readonly}>
+            <Text style={styles.readonlyLabel}>Phone</Text>
+            <Text style={styles.readonlyValue}>{session.phone ?? 'Not set'}</Text>
+            <Text style={styles.readonlyHint}>
+              This is how you sign in. Get in touch if it needs to change.
+            </Text>
+          </View>
         </View>
       </ScrollView>
 
@@ -152,6 +152,19 @@ const styles = StyleSheet.create({
   },
 
   form: { gap: spacing.xl, marginTop: spacing.lg },
+
+  readonly: { gap: spacing.xs },
+  readonlyLabel: { ...typography.metaStrong, color: colors.textSecondary },
+  readonlyValue: {
+    ...typography.body,
+    color: colors.textSecondary,
+    backgroundColor: colors.surfaceSunken,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md + 2,
+    overflow: 'hidden',
+  },
+  readonlyHint: { ...typography.caption, color: colors.textTertiary },
 
   footer: {
     position: 'absolute',

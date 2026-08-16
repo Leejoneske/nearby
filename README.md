@@ -22,10 +22,32 @@ npm run web        # browser, for a quick look
 ```
 
 ```bash
-npm test           # 55 unit tests over the logic layer
+npm test           # 62 unit tests over the logic layer
 npm run typecheck  # tsc --noEmit
+npm run lint       # eslint, config committed so it needs no network
 npm run icons      # regenerate app icons from the vector mark
 ```
+
+## Versions
+
+Two numbers, and they are not the same thing.
+
+| | Where | Who changes it |
+| --- | --- | --- |
+| `version` — `1.1.0` | `app.json` | You, by hand, when the release deserves it |
+| build counter | `android.versionCode` / `ios.buildNumber` | CI, from the workflow run number |
+
+Android compares the **build counter**, not the version string, to decide
+whether an install is an upgrade. Leave it at `1` on every build and a phone
+will refuse to replace the copy it already has, and Play rejects the upload
+outright. So the workflow stamps it from the run number, which only ever rises.
+
+The value committed to `app.json` is therefore a placeholder — CI overwrites it
+before `expo prebuild` runs. Do not bother keeping it current by hand.
+
+`Settings → Version` shows both, read from the installed package rather than
+the config, because those disagree on every CI build. `src/lib/appInfo.ts`
+holds that logic and is tested.
 
 ## What is real and what is not
 
@@ -87,7 +109,7 @@ To publish a build, run **Actions → Build Android APK → Run workflow**, or
 push a tag:
 
 ```bash
-git tag v1.0.1 && git push origin v1.0.1
+git tag v1.1.0 && git push origin v1.1.0
 ```
 
 The workflow runs `expo prebuild` and `gradlew assembleRelease` on a GitHub
@@ -130,6 +152,7 @@ every screen.
 src/
   app/                  routes (expo-router: the file tree is the navigation)
     (tabs)/             Home, Saved, Map, Recent, Profile
+    intro               first-run slides, shown once
     (auth)/             phone sign-in and code entry
     business/[id]       public listing page
     reviews/[id]        every review for a business

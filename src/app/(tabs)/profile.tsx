@@ -6,6 +6,8 @@ import { useScreenInsets } from '../../lib/insets';
 import { Button } from '../../components/Button';
 import { Photo } from '../../components/Photo';
 import { Avatar, Card, InfoRow, Pill, SectionHeader } from '../../components/primitives';
+import { appVersionLabel } from '../../lib/appInfo';
+import { resetIntro } from '../../lib/firstRun';
 import { formatDelta } from '../../lib/format';
 import { useStore } from '../../lib/store';
 import {
@@ -145,6 +147,19 @@ export default function ProfileScreen() {
               icon="document-text-outline"
               label="Terms of Use"
               onPress={() => router.push('/legal/terms')}
+            />
+            <InfoRow
+              icon="play-circle-outline"
+              label="Replay the introduction"
+              onPress={async () => {
+                await resetIntro();
+                router.replace('/intro');
+              }}
+            />
+            <InfoRow
+              icon="information-circle-outline"
+              label="Version"
+              value={appVersionLabel()}
               last
             />
           </Card>

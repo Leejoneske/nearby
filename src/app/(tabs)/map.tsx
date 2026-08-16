@@ -14,6 +14,7 @@ import { VIEWER_LOCATION } from '../../data/businesses';
 import type { CategoryId } from '../../data/types';
 import { formatDistance, formatPriceRange } from '../../lib/format';
 import { openState } from '../../lib/hours';
+import { openDirections } from '../../lib/openLink';
 import { useStore } from '../../lib/store';
 import {
   colors,
@@ -184,6 +185,7 @@ export default function MapScreen() {
                 />
               </Pressable>
               <Pressable
+                onPress={() => openDirections(selected.lat, selected.lng, selected.name)}
                 accessibilityRole="button"
                 accessibilityLabel={`Directions to ${selected.name}`}
                 style={[styles.cardIconButton, styles.cardIconPrimary]}
