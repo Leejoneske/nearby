@@ -22,6 +22,7 @@ import {
 import { Button } from '../../components/Button';
 import { Field } from '../../components/Field';
 import { useScreenInsets } from '../../lib/insets';
+import { supabase } from '../../lib/supabase';
 import { colors, radii, spacing, typography } from '../../theme/tokens';
 
 /** Digits only, ignoring spaces and a leading +. */
@@ -35,13 +36,32 @@ export default function SignInScreen() {
   const insets = useScreenInsets();
   const [phone, setPhone] = useState('');
   const [touched, setTouched] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
 
   const valid = isPlausiblePhone(phone);
-  const error = touched && !valid ? 'Enter a phone number we can text' : undefined;
+  const error =
+    failure ?? (touched && !valid ? 'Enter a phone number we can text' : undefined);
 
-  const onContinue = () => {
+  const onContinue = async () => {
     setTouched(true);
+    setFailure(null);
     if (!valid) return;
+
+    setSending(true);
+    // Sends a real code. Until an SMS provider is configured on the project
+    // this fails, and the message below is what the person sees — better
+    // than a screen that pretends to have sent something.
+    const { error: sendError } = await supabase.auth.signInWithOtp({
+      phone: phone.replace(/[^\d+]/g, ''),
+    });
+    setSending(false);
+
+    if (sendError) {
+      setFailure('We could not send a code just now. Please try again shortly.');
+      console.warn('[auth] sending the code failed', sendError);
+      return;
+    }
     router.push({ pathname: '/(auth)/verify', params: { phone: phone.trim() } });
   };
 
@@ -88,7 +108,7 @@ export default function SignInScreen() {
             error={error}
             hint="We will text you a six digit code."
           />
-          <Button label="Continue" onPress={onContinue} />
+          <Button label="Continue" onPress={onContinue} loading={sending} />
         </View>
 
         <View style={styles.divider}>

@@ -21,7 +21,7 @@ import {
 
 import { Button } from '../../components/Button';
 import { useScreenInsets } from '../../lib/insets';
-import { useStore } from '../../lib/store';
+import { supabase } from '../../lib/supabase';
 import { colors, radii, spacing, typography } from '../../theme/tokens';
 
 const LENGTH = 6;
@@ -31,8 +31,6 @@ export default function VerifyScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
   const { phone } = useLocalSearchParams<{ phone?: string }>();
-  const { signIn } = useStore();
-
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | undefined>();
   const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
@@ -44,10 +42,24 @@ export default function VerifyScreen() {
     return () => clearTimeout(timer);
   }, [secondsLeft]);
 
-  const submit = (value: string) => {
-    if (value.length < LENGTH) return;
-    // No backend yet, so any complete code is accepted.
-    signIn(phone ?? '');
+  const [checking, setChecking] = useState(false);
+
+  const submit = async (value: string) => {
+    if (value.length < LENGTH || checking) return;
+    setChecking(true);
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      phone: (phone ?? '').replace(/[^\d+]/g, ''),
+      token: value,
+      type: 'sms',
+    });
+    setChecking(false);
+
+    if (verifyError) {
+      setError('That code did not work. Check it and try again.');
+      setCode('');
+      return;
+    }
+    // The store is listening for the session change and reloads from there.
     router.replace('/(tabs)');
   };
 
@@ -55,7 +67,7 @@ export default function VerifyScreen() {
     const digits = next.replace(/[^\d]/g, '').slice(0, LENGTH);
     setCode(digits);
     if (error) setError(undefined);
-    if (digits.length === LENGTH) submit(digits);
+    if (digits.length === LENGTH) void submit(digits);
   };
 
   return (
@@ -128,9 +140,10 @@ export default function VerifyScreen() {
                 setError('Enter all six digits');
                 return;
               }
-              submit(code);
+              void submit(code);
             }}
             disabled={code.length < LENGTH}
+            loading={checking}
           />
 
           <Pressable

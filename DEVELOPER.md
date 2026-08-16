@@ -108,10 +108,37 @@ web build.
 
 ## Data goes through the store
 
-Screens never import `src/data/businesses.ts`. They use `useStore()`, whose
-mutations — `updateBusiness`, `addBusiness`, `replyToReview`, `addReview` —
-are deliberately shaped like the API calls that will replace them. When the
-backend lands, that one file changes and the screens do not.
+Screens never talk to the database. They use `useStore()`, which talks to
+`src/lib/api.ts`, which is the only file that knows Supabase exists. A screen
+that imports `supabase` directly has skipped both layers and will be the first
+thing to break when a query changes.
+
+`api.ts` also owns the mapping between database rows and the domain types in
+`src/data/types.ts`. Column names are snake_case and the app is camelCase on
+purpose: the seam is visible, so nobody accidentally leaks a row shape into a
+component.
+
+## The database enforces the rules, not the screens
+
+Row level security is on for every table. "An owner may edit only their own
+listing" is a policy in Postgres, not an `if` in a component — a screen can be
+bypassed with a REST client and a policy cannot.
+
+Two consequences worth remembering:
+
+- **Reading is public, writing needs a session.** Browsing, searching and
+  reading reviews all work signed out, because a sign-in wall in front of a
+  directory is how people leave. Everything that writes goes through a policy.
+- **Derived values are not writable.** `rating` and `review_count` are
+  recomputed by a trigger whenever a review changes, and `UPDATE` on those
+  columns is revoked. Computing them in the client is how a rating and its
+  review list end up disagreeing.
+
+Anything in the `public` schema is published as a REST endpoint, trigger
+functions included. New `SECURITY DEFINER` functions need their `EXECUTE`
+revoked from `anon` and `authenticated` unless they are genuinely meant to be
+called from the app. Run the Supabase security advisor after any schema change
+— it catches exactly this.
 
 ## The web build is not the app
 

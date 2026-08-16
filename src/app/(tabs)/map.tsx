@@ -10,7 +10,7 @@ import { Photo } from '../../components/Photo';
 import { SearchField } from '../../components/SearchField';
 import { Stars } from '../../components/Stars';
 import { CATEGORIES, categoryOf } from '../../data/categories';
-import { VIEWER_LOCATION } from '../../data/businesses';
+import { DEFAULT_ORIGIN } from '../../data/location';
 import type { CategoryId } from '../../data/types';
 import { formatDistance, formatPriceRange } from '../../lib/format';
 import { openState } from '../../lib/hours';
@@ -44,8 +44,8 @@ export default function MapScreen() {
 
   const region = useMemo(
     () => ({
-      latitude: VIEWER_LOCATION.lat,
-      longitude: VIEWER_LOCATION.lng,
+      latitude: DEFAULT_ORIGIN.lat,
+      longitude: DEFAULT_ORIGIN.lng,
       latitudeDelta: 0.075,
       longitudeDelta: 0.075,
     }),

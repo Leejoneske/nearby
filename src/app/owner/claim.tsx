@@ -24,7 +24,7 @@ import { Button } from '../../components/Button';
 import { Field } from '../../components/Field';
 import { Card } from '../../components/primitives';
 import { CATEGORIES, categoryOf } from '../../data/categories';
-import { VIEWER_LOCATION } from '../../data/businesses';
+import { DEFAULT_ORIGIN } from '../../data/location';
 import type { Business, CategoryId } from '../../data/types';
 import { useStore } from '../../lib/store';
 import { colors, radii, spacing, typography } from '../../theme/tokens';
@@ -72,8 +72,8 @@ export default function ClaimScreen() {
       neighbourhood: neighbourhood.trim(),
       phone: phone.trim(),
       // Until the owner drops a pin, the listing sits at the city centre.
-      lat: VIEWER_LOCATION.lat,
-      lng: VIEWER_LOCATION.lng,
+      lat: DEFAULT_ORIGIN.lat,
+      lng: DEFAULT_ORIGIN.lng,
       distanceM: 0,
       photos: [],
       hours: [null, null, null, null, null, null, null],

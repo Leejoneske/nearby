@@ -46,7 +46,10 @@ export type Review = {
 };
 
 export type Business = {
+  /** The slug — stable, readable, and what routes use. */
   id: string;
+  /** Database primary key. Needed for every write; never shown. */
+  dbId?: string;
   name: string;
   categoryId: CategoryId;
   /** Free-text descriptor under the name, e.g. "Specialty coffee roaster". */
