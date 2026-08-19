@@ -113,25 +113,36 @@ jobs:
           # nothing afterwards.
           sed -i 's/^expo.useLegacyPackaging=.*/expo.useLegacyPackaging=true/' android/gradle.properties
 
-          # R8 shrinks and renames the Java and Kotlin side. It is off here
-          # on purpose: an RN app that starts fine in debug and dies in
-          # release is almost always R8 removing a class something reaches
-          # for by name, and this APK is installed straight from a link with
-          # no staged rollout to catch that. `proguard-rules.pro` below is
-          # written and ready, so turning it on is this one line plus opening
-          # the app once on a real phone.
+          # R8 shrinks and renames the Java and Kotlin side, and both its
+          # switches — android.enableMinifyInReleaseBuilds and
+          # android.enableShrinkResourcesInReleaseBuilds — default to false,
+          # which is where they stay. An RN app that starts fine in debug and
+          # dies in release is almost always R8 removing a class something
+          # reaches for by name, and this APK is installed straight from a
+          # link with no staged rollout to catch that. The rules below are
+          # written and ready, so turning it on is one `sed` plus opening the
+          # app once on a real phone.
           #
-          #   sed -i 's/^android.enableMinifyInReleaseBuilds=.*/...=true/'
-          cat >> android/gradle.properties <<'PROPS'
-          android.enableMinifyInReleaseBuilds=false
-          android.enableShrinkResourcesInReleaseBuilds=false
-          PROPS
+          # Do not add those two lines to gradle.properties to document them.
+          # They are already the defaults, so writing them changes nothing —
+          # and appending to that file is how this workflow broke once
+          # already. See the note on the heredoc below.
 
-          # Kept whether or not minification is on, so the day it is turned
-          # on the rules are already the ones that were reasoned about.
+          # Everything R8 would have to be told to keep, because it is
+          # reached by name rather than by a reference it can see: Expo
+          # instantiates its modules from strings, and React Native's own
+          # rules ship inside its AAR.
           #
-          # Everything reached by reflection: Expo instantiates its modules
-          # from names, and React Native's own rules ship inside its AAR.
+          # The blank line after <<'RULES' is load-bearing, and so is the one
+          # in the build.gradle heredoc further down. `expo prebuild` writes
+          # these files with no trailing newline, so an append whose first
+          # line has content lands on the end of the last existing line
+          # instead of under it. That is not hypothetical: appending to
+          # gradle.properties turned
+          # `expo.inlineModules.watchedDirectories=[]` into
+          # `...=[]android.enableMinifyInReleaseBuilds=false`, Expo passed
+          # that to node as JSON, and the build died with nothing more useful
+          # than "Process 'command 'node'' finished with non-zero exit value 1".
           cat >> android/app/proguard-rules.pro <<'RULES'
 
           -keep class expo.modules.** { *; }
@@ -143,7 +154,12 @@ jobs:
           -dontwarn org.maplibre.**
           RULES
 
-          grep -E '^expo.useLegacyPackaging|^android.enableMinify|^android.enableShrinkResources' android/gradle.properties
+          # Whole-line matches, so a value with something glued onto the end
+          # of it fails here — with this step's name on it — rather than
+          # fifty lines into Gradle as an unattributed node exit code.
+          grep -qx 'expo.useLegacyPackaging=true' android/gradle.properties
+          grep -qE '^expo.inlineModules.watchedDirectories=\[[^=]*\]$' android/gradle.properties
+          echo 'gradle.properties is intact'
 
           # The generated project asks for 512 MB of metaspace. That is not
           # enough for this app: compileReleaseArtProfile dies with
