@@ -17,6 +17,7 @@ import type {
   Review,
   WeekHours,
 } from '../data/types';
+import { deviceFingerprint } from './deviceId';
 import { supabase } from './supabase';
 
 /* ------------------------------------------------------------------ rows -- */
@@ -480,7 +481,7 @@ export async function fetchAccountState(): Promise<AccountState> {
  * deletion: a leftover image is a smaller wrong than an account somebody
  * asked to be rid of and still has.
  */
-export async function deleteMyAccount(userId: string): Promise<void> {
+export async function deleteMyAccount(userId: string, reason = ''): Promise<void> {
   for (const bucket of ['avatars', 'business-photos'] as const) {
     try {
       const { data } = await supabase.storage.from(bucket).list(userId);
@@ -491,8 +492,81 @@ export async function deleteMyAccount(userId: string): Promise<void> {
     }
   }
 
-  const { error } = await supabase.rpc('delete_my_account');
+  const { error } = await supabase.rpc('delete_my_account', { in_reason: reason.trim() });
   if (error) throw error;
+}
+
+/**
+ * Every device that has signed in to this account.
+ *
+ * The same rows the fraud rules read, shown to the person they are about.
+ * Coarse on purpose: a rounded position and a device family, never an IP
+ * address or a street. Enough to notice a sign-in from somewhere you have
+ * never been, not enough to be a tracking log.
+ */
+export type KnownDevice = {
+  fingerprint: string;
+  platform: string;
+  country: string;
+  lat: number | null;
+  lng: number | null;
+  firstSeen: string;
+  lastSeen: string;
+  seenCount: number;
+};
+
+/**
+ * The session this app is running on right now.
+ *
+ * Read from the client rather than the database: a session is a token held
+ * here, and asking the server "which of my sessions is this one" is a
+ * question it cannot answer about a bearer token it was merely shown.
+ */
+export type CurrentSession = {
+  email: string | null;
+  signedInAt: string | null;
+  expiresAt: string | null;
+};
+
+export async function fetchCurrentSession(): Promise<CurrentSession | null> {
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data.session) return null;
+
+  const { session } = data;
+  return {
+    email: session.user.email ?? null,
+    signedInAt: session.user.last_sign_in_at ?? null,
+    expiresAt: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
+  };
+}
+
+export async function fetchMyDevices(): Promise<KnownDevice[]> {
+  const { data, error } = await supabase.rpc('my_devices');
+  if (error) throw error;
+  return (data ?? []).map((row: Record<string, unknown>) => ({
+    fingerprint: String(row.fingerprint ?? ''),
+    platform: String(row.platform ?? ''),
+    country: String(row.country ?? ''),
+    lat: row.lat === null || row.lat === undefined ? null : Number(row.lat),
+    lng: row.lng === null || row.lng === undefined ? null : Number(row.lng),
+    firstSeen: String(row.first_seen ?? ''),
+    lastSeen: String(row.last_seen ?? ''),
+    seenCount: Number(row.seen_count ?? 0),
+  }));
+}
+
+/**
+ * Removes a listing the signed-in person owns.
+ *
+ * The reviews on it go with it, and there is no way back — the database
+ * checks the ownership, so a wrong id is refused rather than obeyed.
+ */
+export async function deleteMyBusiness(businessDbId: string, reason = ''): Promise<void> {
+  const { error } = await supabase.rpc('delete_my_business', {
+    in_business_id: businessDbId,
+    in_reason: reason.trim(),
+  });
+  if (error) throw new Error(error.message || 'We could not remove that listing.');
 }
 
 /**
@@ -531,11 +605,24 @@ export async function recordEvent(
   businessDbId: string,
   kind: 'view' | 'call' | 'directions',
 ) {
+  /*
+   * The device rides along so a visit can be counted once.
+   *
+   * Without it there is nothing to tell one signed-out person opening a
+   * listing eight times from eight different people opening it once, and the
+   * database has to count each row — which is how one listing came to show
+   * nineteen views with one person looking at it. It is the same opaque
+   * fingerprint the fraud rules use: no advertising id, nothing that follows
+   * anybody between apps.
+   */
+  const device = await deviceFingerprint().catch(() => '');
+
   // Fire and forget: a lost count must never interrupt a tap.
   const { error } = await supabase.rpc('record_business_event', {
     in_business_id: businessDbId,
     in_kind: kind,
     in_platform: `${Platform.OS}${Platform.Version ? ` ${Platform.Version}` : ''}`,
+    in_device: device,
   });
   if (error) console.warn('[api] recording an event failed', error);
 }

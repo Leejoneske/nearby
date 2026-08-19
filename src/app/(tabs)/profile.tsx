@@ -60,7 +60,9 @@ export default function ProfileScreen() {
    * one at the point somebody reaches for them rather than three screens
    * later.
    */
-  const needsAccount = (destination: '/settings/profile' | '/owner/list') =>
+  const needsAccount = (
+    destination: '/settings/profile' | '/settings/account' | '/owner/list',
+  ) =>
     router.push(signedOut ? '/(auth)/sign-in' : destination);
 
   return (
@@ -175,6 +177,21 @@ export default function ProfileScreen() {
               value={unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
               tone="orange"
               onPress={() => router.push('/notifications')}
+            />
+            {/*
+              * Deleting an account used to be at the bottom of the profile
+              * editor, under the name and area fields. It belongs with the
+              * other things that are true of the whole account rather than
+              * of the person's details, and next to the list of what has
+              * signed in — which is the thing somebody wants to check just
+              * before they decide to leave.
+              */}
+            <InfoRow
+              icon="key-outline"
+              label="Account and sessions"
+              value={signedOut ? 'Not signed in' : 'Devices, and deleting'}
+              tone="steel"
+              onPress={() => needsAccount('/settings/account')}
             />
             <InfoRow
               icon={

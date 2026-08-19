@@ -97,6 +97,54 @@ jobs:
         run: |
           sed -i 's/^reactNativeArchitectures=.*/reactNativeArchitectures=armeabi-v7a,arm64-v8a/' android/gradle.properties
 
+          # Compress the native libraries inside the APK.
+          #
+          # Expo defaults this off, and off is right for the Play Store: an
+          # uncompressed .so can be mapped straight out of the APK, which
+          # makes a smaller *download* because Play recompresses the whole
+          # thing on the way out and a smaller install because nothing is
+          # extracted.
+          #
+          # Nothing about that applies here. This APK is downloaded directly
+          # from a link on the site, so the file is the download, and
+          # uncompressed native code is the single largest thing in it —
+          # libhermes, libreactnative and MapLibre together. Turning
+          # compression on costs a one-off extraction at install time and
+          # nothing afterwards.
+          sed -i 's/^expo.useLegacyPackaging=.*/expo.useLegacyPackaging=true/' android/gradle.properties
+
+          # R8 shrinks and renames the Java and Kotlin side. It is off here
+          # on purpose: an RN app that starts fine in debug and dies in
+          # release is almost always R8 removing a class something reaches
+          # for by name, and this APK is installed straight from a link with
+          # no staged rollout to catch that. `proguard-rules.pro` below is
+          # written and ready, so turning it on is this one line plus opening
+          # the app once on a real phone.
+          #
+          #   sed -i 's/^android.enableMinifyInReleaseBuilds=.*/...=true/'
+          cat >> android/gradle.properties <<'PROPS'
+          android.enableMinifyInReleaseBuilds=false
+          android.enableShrinkResourcesInReleaseBuilds=false
+          PROPS
+
+          # Kept whether or not minification is on, so the day it is turned
+          # on the rules are already the ones that were reasoned about.
+          #
+          # Everything reached by reflection: Expo instantiates its modules
+          # from names, and React Native's own rules ship inside its AAR.
+          cat >> android/app/proguard-rules.pro <<'RULES'
+
+          -keep class expo.modules.** { *; }
+          -keep class app.nearby.directory.** { *; }
+          -keep @expo.modules.core.interfaces.DoNotStrip class * { *; }
+          -keepclassmembers class * { @expo.modules.core.interfaces.DoNotStrip *; }
+          -keepclassmembers class * { @com.facebook.proguard.annotations.DoNotStrip *; }
+          -keep class com.facebook.jni.** { *; }
+          -dontwarn org.maplibre.**
+          RULES
+
+          grep -E '^expo.useLegacyPackaging|^android.enableMinify|^android.enableShrinkResources' android/gradle.properties
+
           # The generated project asks for 512 MB of metaspace. That is not
           # enough for this app: compileReleaseArtProfile dies with
           # OutOfMemoryError: Metaspace, and long before it does the JVM

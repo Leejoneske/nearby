@@ -128,7 +128,9 @@ type StoreValue = {
   suspension: string | null;
   clearSuspension: () => void;
   /** Removes the account and everything of it. Throws with a reason. */
-  deleteAccount: () => Promise<void>;
+  deleteAccount: (reason?: string) => Promise<void>;
+  /** Removes a listing this person owns, with its reviews. Throws with a reason. */
+  deleteBusiness: (businessId: string, reason?: string) => Promise<void>;
 
   savedIds: string[];
   isSaved: (id: string) => boolean;
@@ -733,11 +735,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
    * session the storage policies will accept, and there is nobody left to do
    * it afterwards.
    */
-  const deleteAccount = useCallback(async () => {
-    if (!profileId) throw new Error('There is no account to delete.');
-    await api.deleteMyAccount(profileId);
-    await supabase.auth.signOut();
-  }, [profileId]);
+  const deleteAccount = useCallback(
+    async (reason = '') => {
+      if (!profileId) throw new Error('There is no account to delete.');
+      await api.deleteMyAccount(profileId, reason);
+      await supabase.auth.signOut();
+    },
+    [profileId],
+  );
 
   /** Re-reads the list. The notifications screen calls this when it opens. */
   const refreshNotifications = useCallback(async () => {
@@ -895,6 +900,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [businesses, profileId, loadBusinesses, loadDetail],
   );
 
+  /**
+   * Removes a listing, then reloads.
+   *
+   * The reload is not optimism about the network: the row is gone in the
+   * database and the screen has to agree, and rebuilding the list from what
+   * is actually there is the only version of that which cannot drift.
+   */
+  const deleteBusiness = useCallback(
+    async (businessId: string, reason = '') => {
+      const business = businesses.find((b) => b.id === businessId);
+      if (!business?.dbId) throw new Error('That listing is not loaded.');
+
+      await api.deleteMyBusiness(business.dbId, reason);
+      await loadBusinesses();
+    },
+    [businesses, loadBusinesses],
+  );
+
   const ownedBusinesses = useMemo(
     () => businesses.filter((b) => b.ownedByViewer),
     [businesses],
@@ -954,6 +977,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       suspension,
       clearSuspension,
       deleteAccount,
+      deleteBusiness,
       savedIds,
       isSaved,
       toggleSaved,
@@ -975,7 +999,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       viewer, session, profileId, signOut, updateViewer, profileLoaded, needsName,
       notifications, unreadCount, markNotificationRead, markAllNotificationsRead,
       refreshNotifications, incoming, dismissIncoming,
-      suspension, clearSuspension, deleteAccount,
+      suspension, clearSuspension, deleteAccount, deleteBusiness,
       savedIds, isSaved, toggleSaved, recentIds, markViewed,
       recentQueries, recordSearch, recommendations,
       getBusiness, ownedBusinesses, updateBusiness, addBusiness, reportBusiness,

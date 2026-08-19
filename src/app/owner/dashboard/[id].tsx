@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScreenInsets } from '../../../lib/insets';
 
 import { Button } from '../../../components/Button';
+import { Field } from '../../../components/Field';
 import { Stars } from '../../../components/Stars';
 import { Avatar, Card, EmptyState, Pill } from '../../../components/primitives';
 import { formatDelta, formatRelativeDate } from '../../../lib/format';
@@ -20,7 +21,10 @@ export default function OwnerDashboard() {
   const router = useRouter();
   const insets = useScreenInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getBusiness } = useStore();
+  const { getBusiness, deleteBusiness } = useStore();
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const [reason, setReason] = useState('');
 
   const business = getBusiness(id);
   const now = useMemo(() => new Date(), []);
@@ -48,6 +52,61 @@ export default function OwnerDashboard() {
       alive = false;
     };
   }, [business?.dbId]);
+
+  /*
+   * Taking a listing down, with what it costs said first.
+   *
+   * Two prompts rather than one. This removes reviews other people wrote
+   * about a real place, and there is no claim flow, so nobody can pick the
+   * listing up afterwards — it would have to be added again from nothing.
+   *
+   * The reason is a field on the screen rather than a prompt in the dialog.
+   * `Alert.prompt` is iOS only, so a dialog that asks for it would be a
+   * question half the people using this app never get shown.
+   */
+  const confirmRemove = () => {
+    if (!business) return;
+    const reviews = business.reviews.length;
+    const detail = [
+      `${business.name} comes off the directory for good.`,
+      reviews > 0
+        ? `The ${reviews} ${reviews === 1 ? 'review' : 'reviews'} people wrote about it go too.`
+        : null,
+      'Nobody else can take it over, and it cannot be brought back.',
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+
+    Alert.alert('Remove this listing?', detail, [
+      { text: 'Keep it', style: 'cancel' },
+      {
+        text: 'Continue',
+        style: 'destructive',
+        onPress: () =>
+          Alert.alert('Last chance', 'This cannot be undone. Remove it now?', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Remove it', style: 'destructive', onPress: () => void remove() },
+          ]),
+      },
+    ]);
+  };
+
+  const remove = async () => {
+    if (!business) return;
+    setRemoving(true);
+    setRemoveError(null);
+    try {
+      await deleteBusiness(business.id, reason);
+      router.replace('/(tabs)/profile');
+    } catch (e) {
+      setRemoveError(
+        e instanceof Error && e.message.trim()
+          ? e.message
+          : 'We could not remove that just now. Try again.',
+      );
+      setRemoving(false);
+    }
+  };
 
   if (!business) {
     return (
@@ -247,6 +306,34 @@ export default function OwnerDashboard() {
             ))
           )}
         </View>
+
+        {/* Removing it */}
+        <Text style={styles.sectionTitle}>Remove this listing</Text>
+        <View style={styles.section}>
+          <Card style={styles.dangerCard}>
+            <Text style={styles.dangerBody}>
+              Takes {business.name} off the directory for good, along with any
+              reviews people have written about it. Nobody else can take it over,
+              and it cannot be brought back.
+            </Text>
+            <Field
+              label="Why are you removing it?"
+              value={reason}
+              onChangeText={setReason}
+              placeholder="Closed down, listed by mistake, something else"
+              multiline
+              hint="Optional. It helps us understand what is not working."
+            />
+            {removeError ? <Text style={styles.dangerError}>{removeError}</Text> : null}
+            <Button
+              label="Remove this listing"
+              variant="danger"
+              size="md"
+              loading={removing}
+              onPress={confirmRemove}
+            />
+          </Card>
+        </View>
       </ScrollView>
     </View>
   );
@@ -347,6 +434,10 @@ const useStyles = makeStyles((colors, tones) => ({
     paddingBottom: spacing.md,
   },
   iconButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+
+  dangerCard: { gap: spacing.md },
+  dangerBody: { ...typography.meta, color: colors.textSecondary },
+  dangerError: { ...typography.meta, color: colors.danger },
   headerTitle: { ...typography.cardTitle, color: colors.textPrimary, flex: 1, textAlign: 'center' },
 
   titleBlock: { paddingHorizontal: spacing.screen, paddingBottom: spacing.xl, gap: spacing.md },

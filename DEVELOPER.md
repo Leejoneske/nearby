@@ -538,6 +538,107 @@ breaks hydration, and the visible symptom is a stale copy of the UI stacked on
 top of the live one — which is exactly the bug that cost an afternoon once
 already.
 
+## What a view is
+
+A view was one row per mount of the listing screen, which counted the same
+person over and over. Open a listing, press back, open it again: two. Look at
+it signed out and then signed in: two more. Check your own listing to see how
+it reads: also a view. One listing showed nineteen with one person looking at
+it, and one of the owner's own listings showed ten of which nine were them.
+
+A view is now **one person, one listing, one day**. A call or a set of
+directions is **one person, one listing, one hour** — a double tap is one
+intention, an afternoon apart is two. The owner's own visits are not counted
+at all.
+
+Who "one person" is: the profile when there is one, and the device when there
+is not, which is why `business_events` carries a `device`. Without it there is
+nothing to tell one signed-out person opening a listing eight times from eight
+people opening it once. It is the same opaque fingerprint the fraud rules use.
+
+The deduplication is in `business_insights`, at read time, not at the door.
+Two reasons. The raw log is what the console's activity feed reads and what a
+fraud signal is built from, so throwing rows away would blind both. And doing
+it at read time corrected the numbers that already existed, which is what
+somebody staring at a wrong figure actually wants.
+
+`record_business_event` still drops a repeat of the same event within sixty
+seconds. That is not the same rule — it is there because screens re-run their
+effects on focus, on a theme change and on a hot reload, and each one used to
+write a row.
+
+## Nothing pushes
+
+There is no `expo-notifications` in this project and no FCM configuration, so
+the app has never posted an Android notification and has no channels. The
+Android settings page saying "This app hasn't received any notifications yet"
+is accurate, not a bug.
+
+What does exist is entirely in-app: rows in `notifications`, a bell on the
+profile tab, a screen listing them, and a banner that slides in over whatever
+is on screen while the app is open. That is real and it works. It just cannot
+wake a phone that is in a pocket.
+
+Making it push needs three things that are not code decisions:
+
+1. A Firebase project for `app.nearby.directory`, and its `google-services.json`
+   committed or injected at build time.
+2. `expo-notifications` plus a `push_tokens` table and a token registered per
+   device on launch.
+3. Something server side to send — an edge function on the notification
+   trigger, posting to FCM with a service-account credential.
+
+Until step 1 exists there is nothing to test against, and shipping the app half
+of it would add a dependency to every APK for a feature that silently does
+nothing. So it is not shipped, and this is the note saying why.
+
+## Why the APK is the size it is, and what actually moves it
+
+61 MB, and the parts are not where people guess. Roughly, for the arm64 build:
+native code (Hermes, React Native, MapLibre) is the largest single block, then
+`classes.dex`, then the JS bundle, then resources. The images in `assets/` are
+700 KB in total and are not worth looking at.
+
+Two things do not help:
+
+- **Removing unused dependencies.** `@expo/ui`, `expo-glass-effect`,
+  `expo-symbols`, `expo-font`, `react-native-reanimated` and
+  `react-native-worklets` are all unreferenced by this app's source and all of
+  them are dependencies of `expo-router`. They are in `node_modules` either
+  way, so taking them out of `package.json` changes nothing in the APK.
+  (`expo-glass-effect` and `expo-symbols` are not even autolinked on Android.)
+- **Excluding `@expo/ui` from autolinking.** It is the one unused module that
+  is genuinely large on Android, because it pulls in Jetpack Compose. It is
+  also a hard dependency of expo-router's native stack toolbar, so excluding it
+  trades megabytes for a crash.
+
+What does move it:
+
+- **`expo.useLegacyPackaging=true`.** Expo defaults this off, which is correct
+  for the Play Store — an uncompressed `.so` is mapped straight out of the APK,
+  and Play recompresses for the wire anyway. None of that applies to a file
+  downloaded from a link on our own site, where the APK *is* the download.
+  Native code is the biggest block in it, and this compresses it. The cost is a
+  one-off extraction at install.
+- **R8.** Written and ready in the workflow, and deliberately switched off. An
+  RN app that starts in debug and dies in release is almost always R8 removing
+  something reached for by name, and this APK installs straight from a link
+  with no staged rollout to catch it. Turning it on is one line plus opening
+  the app once on a real phone.
+
+## The app has to be allowed to follow the phone
+
+`app.json` had `userInterfaceStyle: "light"`, which was right until the day the
+dark theme shipped and wrong from then on. It writes
+`expo_system_ui_user_interface_style` into the native project, and
+`expo-system-ui` reads that at startup and pins `AppCompatDelegate` to
+`MODE_NIGHT_NO`. `useColorScheme()` then returns `light` forever, so
+"Follows your phone" was permanently light on Android — the manual toggle
+worked, because that one never asks the system.
+
+It is `"automatic"` now. Anything that changes how the app decides its scheme
+has to check this file too; the JS side cannot see that it has been overruled.
+
 ## Errors have to leave the device
 
 A `console.warn` on a phone we do not have is not a bug report, and "it does
@@ -667,6 +768,50 @@ hashed with the coarse device model. Deliberately not an advertising id or a
 hardware serial: it identifies "the phone Nearby was installed on" and nothing
 else, and clearing the app's data resets it. That is a real limitation and the
 right trade.
+
+## An owner can take their listing back
+
+Listing a business was one way. Somebody who listed a place that closed, or
+listed the wrong thing, or simply changed their mind could edit it forever and
+never remove it — the only delete in the system was the admin's, which made
+"take my business off your directory" a support request.
+
+`delete_my_business` is a real delete, not a status change, and that is the
+difference between it and a suspension. A suspension is something we do to a
+listing and have to be able to explain later. This is the owner taking back
+what they put in. The reviews go with it: they are about a business nobody can
+look up any more, and there is no claim flow to hand the listing to anybody
+else.
+
+It is logged into `admin_actions` as `business.owner_delete`, in the same place
+an admin's delete is logged, so "where did this listing go" has an answer
+whoever did it. A wrong id is refused by the same message as a listing that is
+not there, because anything more specific answers "who owns this?" for anybody
+willing to guess.
+
+## Account and sessions is one screen
+
+Deleting an account used to be at the bottom of the profile editor, underneath
+the name and area fields. That is a strange place to find the end of an
+account: you went there to change your name.
+
+`settings/account` is now the screen for things that are true of the whole
+account rather than of somebody's details — what has signed in, from roughly
+where, and how to be rid of all of it.
+
+The device list is the same `device_fingerprints` rows the fraud rules read.
+Showing them to the person they are about is the right way round: they are
+theirs before they are our signal, and it is the only way anybody notices a
+sign-in they did not make. Coarse on purpose — the position was already
+rounded to two decimal places, about a kilometre, so it can say a town and
+cannot say a street. No IP addresses are kept.
+
+Both deletions take an optional reason, and the account one is the interesting
+case: it is the only part of an account that deliberately outlives it. The
+sentence and the date go into `departures` with no profile, no email and no id,
+so "people keep leaving because X" is answerable and "who said that" is not.
+That table has RLS on and no policy at all, which closes it to every client;
+`admin_departures` is the only way in.
 
 ## Deleting an account has to actually delete
 
