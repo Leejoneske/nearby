@@ -6,14 +6,15 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
   Pressable,
-  StyleSheet,
   Text,
   View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
 
-import { colors, radii, spacing, typography } from '../theme/tokens';
+import { radii, spacing, typography } from '../theme/tokens';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
+import { dark, light } from '../theme/palettes';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type Size = 'lg' | 'md' | 'sm';
@@ -45,7 +46,10 @@ export function Button({
   fullWidth = true,
   style,
 }: Props) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const inactive = disabled || loading;
+  const look = variantStyles[useTheme().scheme];
 
   return (
     <Pressable
@@ -58,8 +62,8 @@ export function Button({
         styles.base,
         { height: HEIGHTS[size] },
         fullWidth && styles.fullWidth,
-        variantStyles[variant].container,
-        pressed && !inactive && variantStyles[variant].pressed,
+        look[variant].container,
+        pressed && !inactive && look[variant].pressed,
         inactive && styles.disabled,
         style,
       ]}
@@ -74,7 +78,7 @@ export function Button({
             <Ionicons
               name={icon as never}
               size={size === 'sm' ? 16 : 19}
-              color={variantStyles[variant].label.color}
+              color={look[variant].label.color}
             />
           ) : null}
           <Text
@@ -82,7 +86,7 @@ export function Button({
               styles.label,
               size === 'sm' && styles.labelSm,
               size === 'md' && styles.labelMd,
-              variantStyles[variant].label,
+              look[variant].label,
             ]}
             numberOfLines={1}
           >
@@ -92,7 +96,7 @@ export function Button({
             <Ionicons
               name={iconRight as never}
               size={size === 'sm' ? 16 : 19}
-              color={variantStyles[variant].label.color}
+              color={look[variant].label.color}
             />
           ) : null}
         </View>
@@ -101,7 +105,7 @@ export function Button({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   base: {
     borderRadius: radii.pill,
     alignItems: 'center',
@@ -114,34 +118,50 @@ const styles = StyleSheet.create({
   labelMd: { fontSize: 15 },
   labelSm: { fontSize: 14 },
   disabled: { opacity: 0.45 },
-});
+}));
 
-const variantStyles: Record<
-  Variant,
-  { container: ViewStyle; pressed: ViewStyle; label: { color: string } }
-> = {
-  primary: {
-    container: { backgroundColor: colors.accent },
-    pressed: { backgroundColor: colors.accentPressed },
-    label: { color: colors.textOnAccent },
+/**
+ * The four looks a button comes in, per palette.
+ *
+ * These are not in the stylesheet because a variant is three related styles
+ * rather than one, and the component picks between them. Building both
+ * palettes once, at module load, keeps that cheap.
+ */
+const variantStyles = (
+  ['light', 'dark'] as const
+).reduce(
+  (all, scheme) => {
+    const c = scheme === 'dark' ? dark : light;
+    all[scheme] = {
+      primary: {
+        container: { backgroundColor: c.accent },
+        pressed: { backgroundColor: c.accentPressed },
+        label: { color: c.textOnAccent },
+      },
+      secondary: {
+        container: {
+          backgroundColor: c.surface,
+          borderWidth: 1,
+          borderColor: c.border,
+        },
+        pressed: { backgroundColor: c.surfaceSunken },
+        label: { color: c.textPrimary },
+      },
+      ghost: {
+        container: { backgroundColor: 'transparent' },
+        pressed: { backgroundColor: c.surfaceSunken },
+        label: { color: c.textPrimary },
+      },
+      danger: {
+        container: { backgroundColor: c.danger },
+        pressed: { backgroundColor: c.dangerPressed },
+        label: { color: c.textOnAccent },
+      },
+    };
+    return all;
   },
-  secondary: {
-    container: {
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    pressed: { backgroundColor: colors.surfaceSunken },
-    label: { color: colors.textPrimary },
-  },
-  ghost: {
-    container: { backgroundColor: 'transparent' },
-    pressed: { backgroundColor: colors.surfaceSunken },
-    label: { color: colors.textPrimary },
-  },
-  danger: {
-    container: { backgroundColor: colors.danger },
-    pressed: { backgroundColor: '#B3241B' },
-    label: { color: colors.textOnAccent },
-  },
-};
+  {} as Record<
+    'light' | 'dark',
+    Record<Variant, { container: ViewStyle; pressed: ViewStyle; label: { color: string } }>
+  >,
+);

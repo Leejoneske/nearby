@@ -13,7 +13,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -27,9 +26,11 @@ import { initialsOf } from '../../lib/format';
 import { cleanDisplayName } from '../../lib/identity';
 import { useScreenInsets } from '../../lib/insets';
 import { NeedsAccountError, useStore } from '../../lib/store';
-import { colors, spacing, typography } from '../../theme/tokens';
+import { spacing, typography } from '../../theme/tokens';
+import { makeStyles } from '../../theme/ThemeProvider';
 
 export default function WelcomeScreen() {
+  const styles = useStyles();
   const router = useRouter();
   const insets = useScreenInsets();
   const { updateViewer, userId } = useStore();
@@ -142,7 +143,7 @@ function reasonFor(e: unknown, fallback = 'We could not save that. Try again.'):
   return text || fallback;
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   screen: { flex: 1, backgroundColor: colors.canvas },
   title: { ...typography.display, color: colors.textPrimary, marginBottom: spacing.sm },
   body: { ...typography.body, color: colors.textSecondary, maxWidth: '92%' },
@@ -154,4 +155,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.lg,
   },
-});
+}));

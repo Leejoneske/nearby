@@ -120,17 +120,33 @@ export function formatSize(bytes: number | undefined): string | undefined {
  * answer checks immediately.
  */
 /*
- * Six hours, not a day.
+ * How long to wait before looking again *while the app is already running*.
  *
- * A day sounds thrifty until you install a build, the app stamps the clock on
- * first launch, a fix ships an hour later and the app cannot see it until
- * tomorrow — which is what "it never notices updates" turned out to be. The
- * request is one small JSON fetch, and there is a manual check in Settings
- * for anybody who does not want to wait even that long.
+ * A cold start never waits at all: see `shouldCheck`. This only paces the
+ * re-check that happens when somebody switches back to the app, where
+ * checking on every alt-tab would be a request per glance.
+ *
+ * The number used to be a day, and that is the whole story of "it does not
+ * notice updates". Install a build, launch it once, the clock is stamped; a
+ * new build ships four hours later and the app cannot see it until tomorrow.
+ * Which is exactly what happened between 1.6.0 and 1.7.0.
  */
-export const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+export const CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
-export function shouldCheck(lastCheckedAt: number | null, now: number): boolean {
+/**
+ * Should we look again yet?
+ *
+ * `coldStart` is the important argument. Opening the app fresh is the moment
+ * somebody is most likely to be told about a new version, and it happens
+ * rarely enough that one small JSON fetch costs nothing. So a cold start
+ * always checks, and the interval only paces the re-checks after it.
+ */
+export function shouldCheck(
+  lastCheckedAt: number | null,
+  now: number,
+  coldStart = false,
+): boolean {
+  if (coldStart) return true;
   if (lastCheckedAt === null) return true;
   // A clock that has gone backwards would otherwise never check again.
   if (lastCheckedAt > now) return true;

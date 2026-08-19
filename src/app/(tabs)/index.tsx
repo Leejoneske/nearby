@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useScreenInsets } from '../../lib/insets';
 
 import { BusinessCard } from '../../components/BusinessCard';
@@ -16,22 +16,16 @@ import { formatDistance } from '../../lib/format';
 import { openState } from '../../lib/hours';
 import { searchBusinesses } from '../../lib/search';
 import { useStore } from '../../lib/store';
-import {
-  colors,
-  radii,
-  shadows,
-  spacing,
-  TAB_BAR_HEIGHT,
-  TAB_BAR_INSET,
-  tones,
-  typography,
-  type ToneName,
-} from '../../theme/tokens';
+import { radii, shadows, spacing, TAB_BAR_HEIGHT, TAB_BAR_INSET, typography, type ToneName } from '../../theme/tokens';
+import { makeStyles, useTheme } from '../../theme/ThemeProvider';
 
 export default function HomeScreen() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const router = useRouter();
   const insets = useScreenInsets();
-  const { businesses, loading, viewer, isSaved, toggleSaved, unreadCount } = useStore();
+  const { businesses, loading, viewer, isSaved, toggleSaved, unreadCount, recommendations } =
+    useStore();
 
   /*
    * Only the very first load. A refresh keeps whatever is already on screen —
@@ -182,6 +176,41 @@ export default function HomeScreen() {
           />
         </ScrollView>
 
+        {/*
+          * For you.
+          *
+          * Above Popular, because it is the better answer to the same
+          * question once there is anything to go on, and hidden entirely when
+          * there is not: a rail called "For you" full of the same listings as
+          * the one underneath it is worse than no rail.
+          */}
+        {!firstLoad && recommendations.length >= 3 ? (
+          <>
+            <SectionHeader title="For you" />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.rail}
+            >
+              {recommendations.map(({ business, reason }) => (
+                <View key={business.id} style={styles.pick}>
+                  <BusinessCard
+                    business={business}
+                    saved={isSaved(business.id)}
+                    onToggleSave={() => toggleSaved(business.id)}
+                    onPress={() => router.push(`/business/${business.id}`)}
+                  />
+                  {/* Saying why is the point. A recommendation nobody can
+                      disagree with is one nobody can trust. */}
+                  <Text style={styles.reason} numberOfLines={2}>
+                    {reason}
+                  </Text>
+                </View>
+              ))}
+            </ScrollView>
+          </>
+        ) : null}
+
         {/* Popular */}
         <SectionHeader
           title="Popular nearby"
@@ -299,6 +328,8 @@ function QuickFilter({
   tone: ToneName;
   onPress: () => void;
 }) {
+  const styles = useStyles();
+  const { tones } = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -311,7 +342,7 @@ function QuickFilter({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   screen: { flex: 1, backgroundColor: colors.canvas },
 
   header: {
@@ -394,6 +425,12 @@ const styles = StyleSheet.create({
   },
   quickLabel: { ...typography.metaStrong, fontSize: 13.5, color: colors.textPrimary },
 
+  pick: { width: 172, gap: spacing.xs },
+  reason: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    paddingHorizontal: spacing.xs,
+  },
   rail: {
     paddingHorizontal: spacing.screen,
     paddingBottom: spacing.xxl,
@@ -422,4 +459,4 @@ const styles = StyleSheet.create({
   offerFooter: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs },
   offerMeta: { ...typography.caption, fontSize: 11.5, color: colors.textTertiary, flexShrink: 1 },
 
-});
+}));

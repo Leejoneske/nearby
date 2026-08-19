@@ -18,7 +18,8 @@ import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useScreenInsets } from '../lib/insets';
-import { colors, radii, spacing, typography } from '../theme/tokens';
+import { radii, spacing, typography } from '../theme/tokens';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
 import { Button } from './Button';
 
 export const REASONS = [
@@ -45,6 +46,8 @@ export function ReportSheet({
   onClose: () => void;
   onSubmit: (reason: string) => Promise<void>;
 }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const insets = useScreenInsets();
   const [chosen, setChosen] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -136,7 +139,7 @@ export function ReportSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   privacy: {
     ...typography.caption,
     color: colors.textTertiary,
@@ -185,4 +188,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: spacing.md,
   },
-});
+}));

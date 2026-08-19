@@ -12,9 +12,10 @@
  * opened the app. The accent is still there on the button they land on.
  */
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
-import { colors, radii, spacing, tones, typography, type ToneName } from '../theme/tokens';
+import { radii, spacing, typography, type ToneName } from '../theme/tokens';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
 
 export function OwnerCta({
   title,
@@ -29,6 +30,8 @@ export function OwnerCta({
   tone?: ToneName;
   onPress: () => void;
 }) {
+  const styles = useStyles();
+  const { colors, tones } = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -48,7 +51,7 @@ export function OwnerCta({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -70,4 +73,4 @@ const styles = StyleSheet.create({
   copy: { flex: 1, gap: 2 },
   title: { ...typography.cardTitle, color: colors.textPrimary },
   body: { ...typography.meta, color: colors.textSecondary },
-});
+}));

@@ -23,7 +23,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { colors, radii, shadows, tones, type ToneName } from '../theme/tokens';
+import { radii, shadows, type ToneName } from '../theme/tokens';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
 
 export type MapMarker = {
   id: string;
@@ -51,6 +52,8 @@ type Props = {
 };
 
 export function SchematicMap({ region, markers, onSelectMarker, style }: Props) {
+  const styles = useStyles();
+  const { colors, tones } = useTheme();
   const [size, setSize] = useState({ width: 0, height: 0 });
 
   const onLayout = (e: LayoutChangeEvent) => {
@@ -124,6 +127,7 @@ export function SchematicMap({ region, markers, onSelectMarker, style }: Props) 
 
 /** Roads, a park and a lake, so the surface reads as a map rather than paper. */
 function MapDecor() {
+  const styles = useStyles();
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <View style={[styles.water, { top: '6%', left: '52%' }]} />
@@ -165,7 +169,7 @@ function MapDecor() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   canvas: {
     backgroundColor: colors.mapLand,
     overflow: 'hidden',
@@ -194,23 +198,23 @@ const styles = StyleSheet.create({
   },
   roadMajor: {
     position: 'absolute',
-    backgroundColor: '#F7E7C8',
+    backgroundColor: colors.paperLand,
     borderRadius: 2,
     borderWidth: 1,
-    borderColor: '#E9D4AC',
+    borderColor: colors.paperPark,
   },
   streetLabel: {
     position: 'absolute',
     fontSize: 10,
     fontWeight: '600',
-    color: '#9A9384',
+    color: colors.paperInk,
   },
   areaLabel: {
     position: 'absolute',
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 1.2,
-    color: '#B0A896',
+    color: colors.paperInkSoft,
   },
   markerWrap: { position: 'absolute', alignItems: 'center' },
   markerWrapSelected: { zIndex: 10 },
@@ -230,4 +234,4 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     textAlign: 'center',
   },
-});
+}));

@@ -5,15 +5,8 @@ import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } fro
 
 import { isUpload, presetFrom } from '../lib/avatars';
 
-import {
-  colors,
-  radii,
-  shadows,
-  spacing,
-  tones,
-  typography,
-  type ToneName,
-} from '../theme/tokens';
+import { radii, shadows, spacing, typography, type ToneName } from '../theme/tokens';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
 
 /**
  * Somebody's picture, wherever their name appears.
@@ -34,6 +27,8 @@ export function Avatar({
   size?: number;
   verified?: boolean;
 }) {
+  const styles = useStyles();
+  const { colors, tones } = useTheme();
   const preset = presetFrom(avatar);
   const photo = isUpload(avatar) ? avatar : undefined;
 
@@ -80,6 +75,7 @@ export function SectionHeader({
   actionLabel?: string;
   onAction?: () => void;
 }) {
+  const styles = useStyles();
   return (
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -99,6 +95,7 @@ export function Card({
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {
+  const styles = useStyles();
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
@@ -125,6 +122,8 @@ export function InfoRow({
   onPress?: () => void;
   last?: boolean;
 }) {
+  const styles = useStyles();
+  const { colors, tones } = useTheme();
   const hue = tone ? tones[tone] : undefined;
   const content = (
     <View style={[styles.infoRow, !last && styles.infoDivider]}>
@@ -166,6 +165,8 @@ export function Pill({
   tone?: 'neutral' | 'accent' | 'success' | 'danger';
   icon?: string;
 }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const toneStyle = {
     neutral: { bg: colors.surfaceSunken, fg: colors.textSecondary },
     accent: { bg: colors.accentSoft, fg: colors.accentPressed },
@@ -190,6 +191,8 @@ export function EmptyState({
   title: string;
   body: string;
 }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   return (
     <View style={styles.empty}>
       <View style={styles.emptyIcon}>
@@ -201,7 +204,7 @@ export function EmptyState({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   avatar: {
     backgroundColor: colors.accent,
     alignItems: 'center',
@@ -213,7 +216,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: -1,
     top: -1,
-    backgroundColor: '#2E9BF0',
+    backgroundColor: colors.verified,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
@@ -287,4 +290,4 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
   },
-});
+}));

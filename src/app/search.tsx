@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useScreenInsets } from '../lib/insets';
 
@@ -15,16 +15,19 @@ import { DEFAULT_FILTERS, type CategoryId, type Filters, type SortKey } from '..
 import { formatDistance, formatPriceLevel } from '../lib/format';
 import { activeFilterCount, searchBusinesses, SORT_LABELS } from '../lib/search';
 import { useStore } from '../lib/store';
-import { colors, radii, spacing, tones, typography, type ToneName } from '../theme/tokens';
+import { radii, spacing, typography, type ToneName } from '../theme/tokens';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
 
 type SheetKind = 'sort' | 'price' | 'radius' | 'all' | null;
 
 const RADIUS_OPTIONS = [500, 1000, 2000, 5000, 10000];
 
 export default function SearchScreen() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const router = useRouter();
   const insets = useScreenInsets();
-  const { businesses, loading, isSaved, toggleSaved } = useStore();
+  const { businesses, loading, isSaved, toggleSaved, recordSearch } = useStore();
   const params = useLocalSearchParams<{
     q?: string;
     category?: string;
@@ -35,6 +38,18 @@ export default function SearchScreen() {
   }>();
 
   const [query, setQuery] = useState(params.q ?? '');
+
+  /*
+   * Remembered once somebody stops typing, not per keystroke.
+   *
+   * A search is the clearest statement of intent in the app and it was being
+   * thrown away. Recording "c", "co", "cof" would bury the signal in its own
+   * prefixes, so this waits for the typing to settle.
+   */
+  useEffect(() => {
+    const timer = setTimeout(() => recordSearch(query), 900);
+    return () => clearTimeout(timer);
+  }, [query, recordSearch]);
   const [sheet, setSheet] = useState<SheetKind>(null);
   const [filters, setFilters] = useState<Filters>({
     ...DEFAULT_FILTERS,
@@ -315,6 +330,8 @@ function Sheet({
   onClose: () => void;
   onClear?: () => void;
 }) {
+  const styles = useStyles();
+  const { colors, tones } = useTheme();
   const insets = useScreenInsets();
 
   return (
@@ -365,7 +382,7 @@ function Sheet({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   screen: { flex: 1, backgroundColor: colors.surface },
 
   header: {
@@ -439,4 +456,4 @@ const styles = StyleSheet.create({
   },
   sheetOptionLabel: { ...typography.body, color: colors.textPrimary, flex: 1 },
   sheetFooter: { paddingTop: spacing.lg },
-});
+}));

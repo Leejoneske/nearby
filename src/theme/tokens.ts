@@ -1,5 +1,16 @@
 /**
- * Design tokens for Nearby.
+ * Design tokens that do not change with the theme.
+ *
+ * Colour used to live here too. It moved to `palettes.ts`, which holds one
+ * set per theme, and screens reach it through `useTheme()` — so this file is
+ * now the things that are the same whichever palette is in force: the grid,
+ * the radii, the type scale.
+ *
+ * Removing `colors` and `tones` from here was deliberate rather than tidy. It
+ * turns "did I convert every screen" from a question somebody has to answer
+ * by looking into one the compiler answers.
+ *
+ * Original notes on the values:
  *
  * Two references drive these values:
  *  - the cafe-discovery mockup, for the warm neutrals and the card/list rhythm
@@ -9,47 +20,6 @@
  * Everything visual should come from here. A raw hex or a magic number in a
  * screen is how two lists end up with slightly different row heights.
  */
-
-export const colors = {
-  /** App canvas. Slightly gray so white cards read as raised. */
-  canvas: '#F2F2F2',
-  /** Cards, sheets, the tab bar capsule. */
-  surface: '#FFFFFF',
-  /** Warm tint behind the home hero, from the cafe reference. */
-  surfaceWarm: '#FBF1E7',
-  /** Pressed/selected state on a white surface. */
-  surfaceSunken: '#EDEDED',
-
-  /** Brand accent — CTAs, active tab, price tags, map pins. */
-  accent: '#FF5A1F',
-  accentPressed: '#E64A12',
-  /** Accent at low opacity, for chips and badges. Pre-flattened onto canvas. */
-  accentSoft: '#FFE9E0',
-
-  textPrimary: '#111111',
-  textSecondary: '#6B6B6B',
-  textTertiary: '#9A9A9A',
-  /** Text on top of the accent. */
-  textOnAccent: '#FFFFFF',
-
-  border: '#E6E6E6',
-  borderStrong: '#D4D4D4',
-
-  star: '#FFB300',
-  success: '#1B9C5D',
-  successSoft: '#E4F5EC',
-  danger: '#D93025',
-  dangerSoft: '#FBE9E7',
-
-  /** Map surface colors, so the web fallback and native styling agree. */
-  mapLand: '#F3F1EC',
-  mapWater: '#CFE3EC',
-  mapPark: '#DCE9D5',
-  mapRoad: '#FFFFFF',
-  mapRoadCasing: '#E8E4DC',
-
-  overlay: 'rgba(0,0,0,0.45)',
-} as const;
 
 /**
  * Icon tones.
@@ -68,24 +38,8 @@ export const colors = {
  * active tab, the price. Reach for another tone when the icon is a label
  * rather than a button.
  */
-export const tones = {
-  orange: { fg: '#FF5A1F', soft: '#FFE9E0' },
-  brown: { fg: '#8C5A3C', soft: '#F2E7DE' },
-  pink: { fg: '#C2427A', soft: '#FBE6F0' },
-  gold: { fg: '#C98A2E', soft: '#FBEFD9' },
-  steel: { fg: '#4F6D87', soft: '#E4EBF1' },
-  green: { fg: '#1B9C5D', soft: '#E4F5EC' },
-  violet: { fg: '#6A5AA8', soft: '#ECE8F8' },
-  indigo: { fg: '#3D5A98', soft: '#E5EAF5' },
-  slate: { fg: '#6F7B87', soft: '#EAEEF1' },
-  plum: { fg: '#7B3FA0', soft: '#F0E6F7' },
-  blue: { fg: '#2E7BE6', soft: '#E3EDFC' },
-  teal: { fg: '#0E8F9E', soft: '#DDF1F3' },
-  amber: { fg: '#E09400', soft: '#FFF1D6' },
-  red: { fg: '#D93025', soft: '#FBE9E7' },
-} as const;
 
-export type ToneName = keyof typeof tones;
+export type { ToneName } from './palettes';
 
 /** 4pt grid. Screens use `screen` for their horizontal gutter. */
 export const spacing = {

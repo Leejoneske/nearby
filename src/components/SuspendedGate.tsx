@@ -11,13 +11,16 @@
  * end of it is usually somebody who has no idea what they did.
  */
 import { Ionicons } from '@expo/vector-icons';
-import { Modal, StyleSheet, Text, View } from 'react-native';
+import { Modal, Text, View } from 'react-native';
 
 import { useStore } from '../lib/store';
-import { colors, radii, spacing, typography } from '../theme/tokens';
+import { radii, spacing, typography } from '../theme/tokens';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
 import { Button } from './Button';
 
 export function SuspendedGate() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const { suspension, clearSuspension } = useStore();
   if (suspension === null) return null;
 
@@ -53,7 +56,7 @@ export function SuspendedGate() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   backdrop: {
     flex: 1,
     backgroundColor: colors.overlay,
@@ -94,4 +97,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: spacing.xs,
   },
-});
+}));

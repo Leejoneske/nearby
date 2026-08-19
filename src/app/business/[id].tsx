@@ -23,9 +23,12 @@ import { stateBadge } from '../../lib/listingState';
 import { shareBusiness } from '../../lib/sharing';
 import { callPhone, openDirections, openWebsite } from '../../lib/openLink';
 import { useStore } from '../../lib/store';
-import { absoluteFill, colors, radii, shadows, spacing, typography } from '../../theme/tokens';
+import { absoluteFill, radii, shadows, spacing, typography } from '../../theme/tokens';
+import { makeStyles, useTheme } from '../../theme/ThemeProvider';
 
 export default function BusinessScreen() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const router = useRouter();
   const insets = useScreenInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -462,6 +465,7 @@ function Section({
   onAction?: () => void;
   children: React.ReactNode;
 }) {
+  const styles = useStyles();
   return (
     <View style={styles.section}>
       <View style={styles.sectionHead}>
@@ -490,6 +494,8 @@ function Action({
   primary?: boolean;
   disabled?: boolean;
 }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   return (
     <Pressable
       onPress={disabled ? undefined : onPress}
@@ -512,6 +518,8 @@ function Action({
 }
 
 function DetailLine({ icon, text, last }: { icon: string; text: string; last?: boolean }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   return (
     <View style={[styles.detailLine, !last && styles.detailDivider]}>
       <Ionicons name={icon as never} size={17} color={colors.textSecondary} />
@@ -520,7 +528,7 @@ function DetailLine({ icon, text, last }: { icon: string; text: string; last?: b
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   screen: { flex: 1, backgroundColor: colors.canvas },
   centered: { justifyContent: 'center' },
   notFoundAction: { paddingHorizontal: spacing.huge },
@@ -539,7 +547,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.94)',
+    backgroundColor: colors.scrim,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.card,
@@ -708,4 +716,4 @@ const styles = StyleSheet.create({
   stickyLabel: { ...typography.caption, color: colors.textTertiary },
   stickyValue: { ...typography.bodyStrong, color: colors.textPrimary },
   stickyButton: { paddingHorizontal: spacing.xl },
-});
+}));

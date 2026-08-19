@@ -7,18 +7,11 @@
  * TAB_BAR_HEIGHT + TAB_BAR_INSET rather than reserving layout space.
  */
 import { Ionicons } from '@expo/vector-icons';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import {
-  colors,
-  radii,
-  shadows,
-  spacing,
-  TAB_BAR_HEIGHT,
-  TAB_BAR_INSET,
-  typography,
-} from '../theme/tokens';
+import { radii, shadows, spacing, TAB_BAR_HEIGHT, TAB_BAR_INSET, typography } from '../theme/tokens';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
 
 /** Icon pairs keyed by route name — outline when idle, solid when active. */
 const ICONS: Record<string, [string, string]> = {
@@ -61,6 +54,8 @@ type TabBarProps = {
 };
 
 export function TabBar({ state, navigation }: TabBarProps) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   // On a device with no home indicator the bar would otherwise sit on the edge.
   const bottom = Math.max(insets.bottom, TAB_BAR_INSET);
@@ -115,7 +110,7 @@ export function TabBar({ state, navigation }: TabBarProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   wrap: {
     position: 'absolute',
     left: 0,
@@ -128,7 +123,7 @@ const styles = StyleSheet.create({
     height: TAB_BAR_HEIGHT,
     paddingHorizontal: spacing.xs + 2,
     borderRadius: radii.pill,
-    backgroundColor: '#DEDEDE',
+    backgroundColor: colors.tabBar,
     ...shadows.floating,
     // The capsule should hug its five items, not stretch to the screen edges.
     maxWidth: 420,
@@ -154,4 +149,4 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontWeight: '700',
   },
-});
+}));

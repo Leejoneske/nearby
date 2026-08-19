@@ -73,18 +73,34 @@ function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+export type ReviewAuthor = { name: string; avatar: string | null };
+
 /**
- * @param avatars the author's picture by profile id, from
- * `review_author_avatars`. Read at fetch time rather than copied on to the
- * review, so changing a picture changes every review at once. The name is
- * still copied, because a review should read as it did when it was written.
+ * @param authors the author's current name and picture by profile id, from
+ * `review_authors`.
+ *
+ * Both are read at fetch time rather than copied on to the review, so
+ * changing either changes every review at once. The name used to be the
+ * copied one, on the reasoning that a review should read as it did when it
+ * was written — which fell apart the first time somebody reviewed a place
+ * before setting a name, got stamped "Guest", set their name, and watched the
+ * review go on saying Guest for ever.
+ *
+ * `author_name` on the row is the fallback, and it is the only thing left
+ * once the account is gone.
  */
-export function toReview(row: ReviewRow, avatars: Map<string, string> = new Map()): Review {
+export function toReview(
+  row: ReviewRow,
+  authors: Map<string, ReviewAuthor> = new Map(),
+): Review {
+  const author = row.author_id ? authors.get(row.author_id) : undefined;
+  const name = author?.name?.trim() || row.author_name;
+
   return {
     id: row.id,
-    authorName: row.author_name,
-    authorInitials: initials(row.author_name),
-    authorAvatar: (row.author_id ? avatars.get(row.author_id) : undefined) ?? undefined,
+    authorName: name,
+    authorInitials: initials(name),
+    authorAvatar: author?.avatar ?? undefined,
     rating: row.rating,
     date: row.created_at.slice(0, 10),
     body: row.body,
@@ -265,32 +281,35 @@ export async function fetchReviews(businessId: string): Promise<Review[]> {
   if (error) throw error;
 
   const rows = data as ReviewRow[];
-  const avatars = await fetchReviewAvatars(rows);
-  return rows.map((row) => toReview(row, avatars));
+  const authors = await fetchReviewAuthors(rows);
+  return rows.map((row) => toReview(row, authors));
 }
 
 /**
- * The authors' pictures for a page of reviews.
+ * Who wrote a page of reviews, as they are now.
  *
  * A second call rather than a join, because a profile row is readable only by
  * the person it belongs to — it holds their email address and phone number —
- * so joining it returned a picture on your own reviews and on nobody else's.
- * The function hands back ids and avatars alone.
+ * so joining it returned an answer on your own reviews and on nobody else's.
+ * The function hands back the display name and the picture and nothing else.
  */
-export async function fetchReviewAvatars(rows: { author_id: string | null }[]): Promise<Map<string, string>> {
+export async function fetchReviewAuthors(
+  rows: { author_id: string | null }[],
+): Promise<Map<string, ReviewAuthor>> {
   const ids = Array.from(new Set(rows.map((r) => r.author_id).filter((v): v is string => !!v)));
   if (ids.length === 0) return new Map();
 
-  const { data, error } = await supabase.rpc('review_author_avatars', { in_ids: ids });
+  const { data, error } = await supabase.rpc('review_authors', { in_ids: ids });
   if (error) {
-    // A missing picture is not worth failing a page of reviews over.
-    console.warn('[api] reading review pictures failed', error);
+    // The row carries a name to fall back to, so this is not worth failing a
+    // page of reviews over.
+    console.warn('[api] reading review authors failed', error);
     return new Map();
   }
   return new Map(
-    ((data ?? []) as { id: string; avatar_url: string | null }[])
-      .filter((row) => !!row.avatar_url)
-      .map((row) => [row.id, row.avatar_url as string]),
+    ((data ?? []) as { id: string; name: string | null; avatar_url: string | null }[]).map(
+      (row) => [row.id, { name: row.name ?? '', avatar: row.avatar_url }],
+    ),
   );
 }
 

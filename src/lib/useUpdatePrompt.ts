@@ -53,7 +53,10 @@ export function useUpdatePrompt() {
    * from "what should the screen do about it".
    */
   const look = useCallback(
-    async (forced: boolean): Promise<{ manual: ManualCheck; offer: Offer | null }> => {
+    async (
+      forced: boolean,
+      coldStart = false,
+    ): Promise<{ manual: ManualCheck; offer: Offer | null }> => {
       if (running.current) return { manual: { kind: 'checking' }, offer: null };
       running.current = true;
 
@@ -64,7 +67,10 @@ export function useUpdatePrompt() {
         ]);
 
         const last = lastRaw ? Number.parseInt(lastRaw, 10) : null;
-        if (!forced && !shouldCheck(Number.isFinite(last as number) ? last : null, Date.now())) {
+        if (
+          !forced &&
+          !shouldCheck(Number.isFinite(last as number) ? last : null, Date.now(), coldStart)
+        ) {
           return { manual: { kind: 'current' }, offer: null };
         }
 
@@ -111,14 +117,15 @@ export function useUpdatePrompt() {
   useEffect(() => {
     let alive = true;
 
-    const check = async () => {
-      const { offer: found } = await look(false);
+    const check = async (coldStart: boolean) => {
+      const { offer: found } = await look(false, coldStart);
       if (alive && found) offer(found);
     };
 
-    void check();
+    // Opening the app is the moment to be told, so it always looks.
+    void check(true);
     const sub = AppState.addEventListener('change', (next) => {
-      if (next === 'active') void check();
+      if (next === 'active') void check(false);
     });
 
     return () => {

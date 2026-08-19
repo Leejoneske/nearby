@@ -1,10 +1,11 @@
 /** Vertical card for the home-screen rails. */
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import type { Business } from '../data/types';
 import { formatDistance, formatPriceRange } from '../lib/format';
-import { colors, radii, shadows, spacing, typography } from '../theme/tokens';
+import { radii, shadows, spacing, typography } from '../theme/tokens';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
 import { Photo } from './Photo';
 import { Stars } from './Stars';
 
@@ -18,6 +19,8 @@ type Props = {
 };
 
 export function BusinessCard({ business, onPress, saved, onToggleSave }: Props) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   /*
    * The heart sits beside the card rather than inside it.
    *
@@ -94,7 +97,7 @@ export function BusinessCard({ business, onPress, saved, onToggleSave }: Props) 
 
 BusinessCard.WIDTH = CARD_WIDTH;
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   wrap: { width: CARD_WIDTH },
   card: {
     width: CARD_WIDTH,
@@ -112,7 +115,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: colors.scrim,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -134,4 +137,4 @@ const styles = StyleSheet.create({
   name: { ...typography.cardTitle, fontSize: 15, color: colors.textPrimary },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   meta: { ...typography.caption, fontSize: 11.5, color: colors.textSecondary, flexShrink: 1 },
-});
+}));

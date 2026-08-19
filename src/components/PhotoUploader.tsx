@@ -10,11 +10,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import * as api from '../lib/api';
 import { checkImage, storagePath } from '../lib/avatars';
-import { colors, radii, spacing, typography } from '../theme/tokens';
+import { radii, spacing, typography } from '../theme/tokens';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
 
 export const MAX_PHOTOS = 6;
 
@@ -28,6 +29,8 @@ export function PhotoUploader({
   /** Uploads land in a folder named after this, which storage checks. */
   userId: string | null;
 }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -137,7 +140,7 @@ export function PhotoUploader({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   wrap: { gap: spacing.md },
   advice: { ...typography.meta, color: colors.textSecondary },
   row: { gap: spacing.sm, paddingVertical: spacing.xs },
@@ -182,4 +185,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   error: { ...typography.meta, color: colors.danger },
-});
+}));

@@ -9,7 +9,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Business } from '../data/types';
 import { formatDistance, formatPriceRange } from '../lib/format';
 import { openState } from '../lib/hours';
-import { colors, radii, spacing, typography } from '../theme/tokens';
+import { radii, spacing, typography } from '../theme/tokens';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
 import { Photo } from './Photo';
 import { Stars } from './Stars';
 
@@ -31,6 +32,8 @@ export function BusinessRow({
   last,
   now = new Date(),
 }: Props) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const state = openState(business.hours, now);
 
   return (
@@ -103,7 +106,7 @@ export function BusinessRow({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   row: {
     flexDirection: 'row',
     gap: spacing.md,
@@ -149,4 +152,4 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg + 2,
     paddingHorizontal: spacing.sm,
   },
-});
+}));

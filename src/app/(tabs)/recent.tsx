@@ -1,21 +1,17 @@
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Text, View } from 'react-native';
 import { useScreenInsets } from '../../lib/insets';
 
 import { BusinessRow } from '../../components/BusinessRow';
 import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/primitives';
 import { useStore } from '../../lib/store';
-import {
-  colors,
-  spacing,
-  TAB_BAR_HEIGHT,
-  TAB_BAR_INSET,
-  typography,
-} from '../../theme/tokens';
+import { spacing, TAB_BAR_HEIGHT, TAB_BAR_INSET, typography } from '../../theme/tokens';
+import { makeStyles } from '../../theme/ThemeProvider';
 
 export default function RecentScreen() {
+  const styles = useStyles();
   const router = useRouter();
   const insets = useScreenInsets();
   const { businesses, recentIds, isSaved, toggleSaved } = useStore();
@@ -71,7 +67,7 @@ export default function RecentScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   screen: { flex: 1, backgroundColor: colors.surface },
   header: {
     paddingHorizontal: spacing.screen,
@@ -84,4 +80,4 @@ const styles = StyleSheet.create({
   subtitle: { ...typography.body, color: colors.textSecondary },
   empty: { paddingTop: spacing.xxl },
   emptyAction: { paddingHorizontal: spacing.huge },
-});
+}));

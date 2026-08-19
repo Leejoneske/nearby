@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 
-import { colors, radii, spacing, typography } from '../theme/tokens';
+import { radii, spacing, typography } from '../theme/tokens';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
 
 type Props = {
   label: string;
@@ -31,6 +32,8 @@ export function Field({
   onPress,
   prefix,
 }: Props) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   return (
     <View style={styles.wrap}>
       <Text style={styles.label}>{label}</Text>
@@ -78,7 +81,7 @@ export function Field({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   wrap: { gap: spacing.sm },
   label: { ...typography.metaStrong, color: colors.textSecondary },
   input: {
@@ -109,4 +112,4 @@ const styles = StyleSheet.create({
   textInputMultiline: { textAlignVertical: 'top', minHeight: 86, paddingVertical: 0 },
   hint: { ...typography.caption, color: colors.textTertiary },
   error: { ...typography.caption, color: colors.danger },
-});
+}));

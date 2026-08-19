@@ -12,7 +12,8 @@ import type { Review } from '../../data/types';
 import { formatRelativeDate, formatReviewCount } from '../../lib/format';
 import { useScreenInsets } from '../../lib/insets';
 import { useStore } from '../../lib/store';
-import { colors, radii, spacing, typography } from '../../theme/tokens';
+import { radii, spacing, typography } from '../../theme/tokens';
+import { makeStyles, useTheme } from '../../theme/ThemeProvider';
 
 type SortKey = 'recent' | 'highest' | 'lowest';
 
@@ -35,6 +36,8 @@ function sortReviews(reviews: Review[], key: SortKey): Review[] {
 }
 
 export default function AllReviewsScreen() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const router = useRouter();
   const insets = useScreenInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -189,7 +192,7 @@ export default function AllReviewsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   screen: { flex: 1, backgroundColor: colors.canvas },
   centered: { justifyContent: 'center' },
 
@@ -258,4 +261,4 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
-});
+}));

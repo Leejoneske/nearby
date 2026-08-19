@@ -24,9 +24,12 @@ import { Field } from '../../components/Field';
 import { isDisposableEmail, isPlausibleEmail } from '../../lib/identity';
 import { useScreenInsets } from '../../lib/insets';
 import { supabase } from '../../lib/supabase';
-import { colors, radii, spacing, typography } from '../../theme/tokens';
+import { radii, spacing, typography } from '../../theme/tokens';
+import { makeStyles, useTheme } from '../../theme/ThemeProvider';
 
 export default function SignInScreen() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const router = useRouter();
   const insets = useScreenInsets();
   const [email, setEmail] = useState('');
@@ -144,7 +147,7 @@ export default function SignInScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   screen: { flex: 1, backgroundColor: colors.canvas },
   back: { width: 40, height: 40, justifyContent: 'center', marginBottom: spacing.xl },
   mark: {
@@ -175,4 +178,4 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   link: { color: colors.accentPressed, fontWeight: '600' },
-});
+}));

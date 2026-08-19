@@ -38,12 +38,24 @@ import { initialsOf } from './format';
 import { cleanDisplayName } from './identity';
 import { deviceFingerprint } from './deviceId';
 import { reportError } from './errorReporting';
+import { buildTaste, recommend, type Recommendation } from './recommend';
 import { supabase } from './supabase';
 import { useOrigin } from './useOrigin';
 
 /** What you looked at, kept on the device. Twenty is a page of scrolling. */
 const RECENT_KEY = 'nearby.recent.v1';
 const RECENT_LIMIT = 20;
+
+/*
+ * What you searched for, also kept on the device.
+ *
+ * A search is the clearest statement of intent anybody makes in this app, and
+ * it was the one signal being thrown away. Ten is plenty: the recommender
+ * fades them fast, and a longer history is a longer record of somebody's
+ * business for no gain.
+ */
+const QUERY_KEY = 'nearby.queries.v1';
+const QUERY_LIMIT = 10;
 
 export type Viewer = {
   name: string;
@@ -125,6 +137,12 @@ type StoreValue = {
   recentIds: string[];
   markViewed: (id: string) => void;
 
+  /** What was searched for, newest first. Never leaves the device. */
+  recentQueries: string[];
+  recordSearch: (query: string) => void;
+  /** Places worth putting in front of this person, with a reason each. */
+  recommendations: Recommendation[];
+
   getBusiness: (id: string) => Business | undefined;
   ownedBusinesses: Business[];
 
@@ -181,6 +199,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [recentIds, setRecentIds] = useState<string[]>([]);
+  const [recentQueries, setRecentQueries] = useState<string[]>([]);
   /** Which account's listings we have already gone and fetched. */
   const ownedFetched = useRef<string | null>(null);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -472,6 +491,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     let alive = true;
     (async () => {
       try {
+        const queriesRaw = await AsyncStorage.getItem(QUERY_KEY);
+        const storedQueries: unknown = queriesRaw ? JSON.parse(queriesRaw) : [];
+        if (alive && Array.isArray(storedQueries)) {
+          setRecentQueries(
+            storedQueries.filter((v): v is string => typeof v === 'string').slice(0, QUERY_LIMIT),
+          );
+        }
+
         const raw = await AsyncStorage.getItem(RECENT_KEY);
         const stored: unknown = raw ? JSON.parse(raw) : [];
         if (!alive || !Array.isArray(stored)) return;
@@ -678,6 +705,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
   }, [notifications]);
 
+  /*
+   * Only whole searches, not every keystroke, and only ones long enough to
+   * mean something. Storing "c", "co", "cof" would drown the signal in its
+   * own prefixes.
+   */
+  const recordSearch = useCallback((query: string) => {
+    const term = query.trim().toLowerCase();
+    if (term.length < 3) return;
+
+    setRecentQueries((prev) => {
+      if (prev[0] === term) return prev;
+      const next = [term, ...prev.filter((q) => q !== term)].slice(0, QUERY_LIMIT);
+      void AsyncStorage.setItem(QUERY_KEY, JSON.stringify(next))
+        .catch((e) => reportError('store/queries-write', e));
+      return next;
+    });
+  }, []);
+
   const dismissIncoming = useCallback(() => setIncoming(null), []);
   const clearSuspension = useCallback(() => setSuspension(null), []);
 
@@ -855,6 +900,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [businesses],
   );
 
+  /*
+   * What to put in front of this person, worked out here rather than on a
+   * screen so every rail and every list agrees about it.
+   *
+   * All of it is derived on the device from their own activity, and none of
+   * it is sent anywhere. `src/lib/recommend.ts` holds the reasoning.
+   */
+  const recommendations = useMemo(() => {
+    const byId = new Map(businesses.map((b) => [b.id, b]));
+    const pick = (ids: string[]) =>
+      ids.map((id) => byId.get(id)).filter((b): b is Business => !!b);
+
+    const taste = buildTaste({
+      saved: pick(savedIds),
+      recent: pick(recentIds),
+      queries: recentQueries,
+      reviewed: businesses.flatMap((business) =>
+        business.reviews
+          .filter((r) => r.authorName === profile.name && profile.named)
+          .map((r) => ({ business, rating: r.rating })),
+      ),
+      all: businesses,
+    });
+
+    return recommend(businesses, taste, { limit: 8 });
+  }, [businesses, savedIds, recentIds, recentQueries, profile.name, profile.named]);
+
   const value = useMemo<StoreValue>(
     () => ({
       businesses,
@@ -887,6 +959,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       toggleSaved,
       recentIds,
       markViewed,
+      recentQueries,
+      recordSearch,
+      recommendations,
       getBusiness,
       ownedBusinesses,
       updateBusiness,
@@ -902,6 +977,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       refreshNotifications, incoming, dismissIncoming,
       suspension, clearSuspension, deleteAccount,
       savedIds, isSaved, toggleSaved, recentIds, markViewed,
+      recentQueries, recordSearch, recommendations,
       getBusiness, ownedBusinesses, updateBusiness, addBusiness, reportBusiness,
       replyToReview, addReview,
     ],

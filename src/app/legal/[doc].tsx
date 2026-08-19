@@ -1,13 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { EmptyState } from '../../components/primitives';
 import { LEGAL } from '../../data/legal';
 import { useScreenInsets } from '../../lib/insets';
-import { colors, spacing, typography } from '../../theme/tokens';
+import { spacing, typography } from '../../theme/tokens';
+import { makeStyles, useTheme } from '../../theme/ThemeProvider';
 
 export default function LegalScreen() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const router = useRouter();
   const insets = useScreenInsets();
   const { doc } = useLocalSearchParams<{ doc: string }>();
@@ -68,7 +71,7 @@ export default function LegalScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   screen: { flex: 1, backgroundColor: colors.canvas },
   centered: { flex: 1, justifyContent: 'center' },
 
@@ -92,4 +95,4 @@ const styles = StyleSheet.create({
   section: { marginTop: spacing.xxl, gap: spacing.md },
   heading: { ...typography.sectionTitle, color: colors.textPrimary },
   paragraph: { ...typography.body, color: colors.textSecondary },
-});
+}));

@@ -67,9 +67,12 @@ acted is not something they can use.
 
 ## Everything visual comes from the tokens
 
-`src/theme/tokens.ts` holds every colour, space, radius, shadow and type size.
-A raw hex or a magic number in a screen is how two lists end up with subtly
-different row heights, and how a rebrand becomes a week of work.
+`src/theme/tokens.ts` holds every space, radius, shadow and type size, and
+`src/theme/palettes.ts` holds the colours — one set per theme. A raw hex or a
+magic number in a screen is how two lists end up with subtly different row
+heights, and how a rebrand becomes a week of work. Since the app gained a dark
+theme it is also how a screen ends up with a white capsule floating on a black
+background, which is exactly what a hardcoded `#DEDEDE` in the tab bar did.
 
 ```tsx
 // Good
@@ -101,6 +104,83 @@ pin, or a generated photo.
 when it is given a tone, because a row that leads somewhere is worth marking
 and a row that merely states a fact is not. A settings list where every line
 carries an identical badge is a wall, not a list.
+
+## Two themes, one set of names
+
+A screen names a **role**, never a colour: `surface`, `textSecondary`,
+`tabBar`. That is what makes switching theme switch everything without any
+screen knowing which theme is on.
+
+The mechanism is `makeStyles`:
+
+```tsx
+const useStyles = makeStyles((colors, tones) => ({
+  card: { backgroundColor: colors.surface },
+}));
+
+export function Card() {
+  const styles = useStyles();
+  const { colors } = useTheme();   // only if a colour is named in JSX
+  ...
+}
+```
+
+The callback parameters are deliberately named `colors` and `tones`, so every
+rule inside a stylesheet reads exactly as it did before the app had themes.
+Both palettes are built once, at module load, so switching picks between two
+finished stylesheets rather than rebuilding anything while somebody scrolls.
+
+Three things worth keeping true:
+
+- **`palettes.ts` is the only file with a hex in it.** `palettes.test.ts`
+  checks that the two palettes describe the same roles, that nothing is
+  undefined, and that text and icon tiles clear their contrast ratios. It
+  caught three light-theme tones that had always been under 3:1, and an
+  earlier dark accent that failed with white on it.
+- **The dark palette is not the light one inverted.** Pure black makes white
+  text vibrate and destroys the sense of a card sitting above a surface, so
+  the ground is a very dark *warm* grey with each layer above it lighter. Warm
+  because the accent is orange, and neutral grey beside orange reads blue.
+- **The accent is the same orange in both.** The instinct is to lift it on a
+  dark ground; doing so took the white label on an accent button from 3.1 to
+  2.8 against it, under the bar. Readability wins over vividness.
+
+Appearance is a three-state preference, not a switch: system, always light,
+always dark. System is the default because that is what people expect,
+including when the phone changes at dusk.
+
+## What "recommended" means here
+
+`src/lib/recommend.ts` builds a taste from what somebody saved, viewed,
+searched and reviewed, then scores every listing against it alongside
+distance, quality, whether it is open, price and area.
+
+It is deliberately a set of legible rules rather than something that sounds
+cleverer, and the reasoning is worth keeping. A directory of a few thousand
+listings in one city, used by somebody who has opened perhaps twenty of them,
+does not have the data for collaborative filtering: there are not enough
+overlapping pairs to learn from, and a model trained on that would mostly
+repeat the popularity it already knows.
+
+Four decisions inside it that are easy to get backwards:
+
+- **A bad review is evidence against a category, not for it.** Anything that
+  counts "interactions" gets this wrong.
+- **Distance and quality together outweigh taste.** Somebody who likes cafes
+  still wants a good cafe *near them*. A recommender that sends them across
+  the city because the category matched has understood the wrong half.
+- **Quality is shrunk towards a prior.** One five-star review is not better
+  than a 4.6 from two hundred people, and a plain average says it is.
+- **Two per category, then fill.** Somebody who saved three cafes already
+  knows they like cafes; the thing a directory is for is the place they have
+  not found yet.
+
+Every recommendation carries a sentence saying why, and that is not decoration.
+A recommendation nobody can disagree with is one nobody can trust, and one
+nobody can debug.
+
+The whole thing runs on the device from that person's own activity. Nothing is
+sent anywhere, and nothing about anybody else goes into it.
 
 ## Decisions live outside the components
 

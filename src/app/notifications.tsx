@@ -8,7 +8,8 @@ import type { AppNotification, NotificationKind } from '../data/types';
 import { formatRelativeDate } from '../lib/format';
 import { useScreenInsets } from '../lib/insets';
 import { useStore } from '../lib/store';
-import { colors, radii, spacing, tones, typography, type ToneName } from '../theme/tokens';
+import { radii, spacing, typography, type ToneName } from '../theme/tokens';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
 
 /**
  * A glyph and a colour per kind, so a list of notices can be skimmed for the
@@ -22,6 +23,8 @@ const KIND: Record<NotificationKind, { icon: string; tone: ToneName }> = {
 };
 
 export default function NotificationsScreen() {
+  const styles = useStyles();
+  const { colors, tones } = useTheme();
   const router = useRouter();
   const insets = useScreenInsets();
   const {
@@ -150,7 +153,7 @@ export default function NotificationsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   screen: { flex: 1, backgroundColor: colors.surface },
   header: {
     flexDirection: 'row',
@@ -201,4 +204,4 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   empty: { paddingTop: spacing.huge },
-});
+}));

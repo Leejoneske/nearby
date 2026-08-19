@@ -21,9 +21,12 @@ import { initialsOf } from '../../lib/format';
 import { cleanDisplayName } from '../../lib/identity';
 import { useScreenInsets } from '../../lib/insets';
 import { NeedsAccountError, useStore } from '../../lib/store';
-import { colors, radii, spacing, typography } from '../../theme/tokens';
+import { radii, spacing, typography } from '../../theme/tokens';
+import { makeStyles, useTheme } from '../../theme/ThemeProvider';
 
 export default function EditProfileScreen() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const router = useRouter();
   const insets = useScreenInsets();
   const { viewer, updateViewer, session, userId, ownedBusinesses, deleteAccount } = useStore();
@@ -252,7 +255,7 @@ function messageFor(e: unknown, fallback = 'We could not save that. Try again.')
   return text || fallback;
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   screen: { flex: 1, backgroundColor: colors.canvas },
   header: {
     flexDirection: 'row',
@@ -308,4 +311,4 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
-});
+}));

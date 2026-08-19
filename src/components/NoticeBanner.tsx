@@ -13,11 +13,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Pressable, Text, View } from 'react-native';
 
 import { useScreenInsets } from '../lib/insets';
 import { useStore } from '../lib/store';
-import { colors, radii, shadows, spacing, tones, typography, type ToneName } from '../theme/tokens';
+import { radii, shadows, spacing, typography, type ToneName } from '../theme/tokens';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
 
 const SHOWN_FOR_MS = 5000;
 
@@ -29,6 +30,8 @@ const KIND: Record<string, { icon: string; tone: ToneName }> = {
 };
 
 export function NoticeBanner() {
+  const styles = useStyles();
+  const { colors, tones } = useTheme();
   const router = useRouter();
   const insets = useScreenInsets();
   const { incoming, dismissIncoming, markNotificationRead } = useStore();
@@ -123,7 +126,7 @@ export function NoticeBanner() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   wrap: {
     position: 'absolute',
     left: 0,
@@ -151,4 +154,4 @@ const styles = StyleSheet.create({
   body: { flex: 1, gap: 2 },
   title: { ...typography.bodyStrong, color: colors.textPrimary },
   text: { ...typography.caption, color: colors.textSecondary },
-});
+}));

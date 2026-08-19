@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 
-import { colors, radii, spacing, typography } from '../theme/tokens';
+import { radii, spacing, typography } from '../theme/tokens';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
 
 type Props = {
   value?: string;
@@ -25,6 +26,8 @@ export function SearchField({
   autoFocus,
   onClear,
 }: Props) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   if (readOnly) {
     return (
       <Pressable
@@ -65,7 +68,7 @@ export function SearchField({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   field: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -87,4 +90,4 @@ const styles = StyleSheet.create({
     // already carries the border, so suppress it.
     ...(({ outlineStyle: 'none' } as unknown) as object),
   },
-});
+}));

@@ -11,22 +11,30 @@ import { appVersionLabel } from '../../lib/appInfo';
 import { stateBadge } from '../../lib/listingState';
 
 import { useStore } from '../../lib/store';
-import {
-  colors,
-  radii,
-  shadows,
-  spacing,
-  TAB_BAR_HEIGHT,
-  TAB_BAR_INSET,
-  typography,
-} from '../../theme/tokens';
+import { radii, shadows, spacing, TAB_BAR_HEIGHT, TAB_BAR_INSET, typography } from '../../theme/tokens';
+import { makeStyles, useTheme, type ThemePreference } from '../../theme/ThemeProvider';
+
+const APPEARANCE_LABEL: Record<ThemePreference, string> = {
+  system: 'Follows your phone',
+  light: 'Always light',
+  dark: 'Always dark',
+};
+
+const NEXT_APPEARANCE: Record<ThemePreference, ThemePreference> = {
+  system: 'light',
+  light: 'dark',
+  dark: 'system',
+};
 
 export default function ProfileScreen() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const router = useRouter();
   const insets = useScreenInsets();
   const { viewer, savedIds, recentIds, ownedBusinesses, signOut, unreadCount, session } =
     useStore();
   const { manual, checkNow } = useUpdates();
+  const { preference, setPreference } = useTheme();
 
   /*
    * The version row is the one place somebody looks when they suspect they
@@ -169,6 +177,25 @@ export default function ProfileScreen() {
               onPress={() => router.push('/notifications')}
             />
             <InfoRow
+              icon={
+                preference === 'system'
+                  ? 'contrast-outline'
+                  : preference === 'dark'
+                    ? 'moon-outline'
+                    : 'sunny-outline'
+              }
+              label="Appearance"
+              value={APPEARANCE_LABEL[preference]}
+              tone="violet"
+              /*
+               * Cycles rather than opening a screen. Three options, and the
+               * one somebody wants is almost always the next tap: a settings
+               * page for a choice with three answers is a page nobody opens
+               * twice.
+               */
+              onPress={() => setPreference(NEXT_APPEARANCE[preference])}
+            />
+            <InfoRow
               icon="shield-checkmark-outline"
               label="Privacy Policy"
               tone="green"
@@ -212,6 +239,7 @@ export default function ProfileScreen() {
 }
 
 function Stat({ value, label }: { value: number; label: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.stat}>
       <Text style={styles.statValue}>{value}</Text>
@@ -220,7 +248,7 @@ function Stat({ value, label }: { value: number; label: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   screen: { flex: 1, backgroundColor: colors.canvas },
 
   header: {
@@ -279,4 +307,4 @@ const styles = StyleSheet.create({
 
   settingsCard: { paddingVertical: 0 },
   signOut: { paddingHorizontal: spacing.huge },
-});
+}));

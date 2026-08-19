@@ -3,9 +3,10 @@
  * listing reference, and the round category tiles on the home screen.
  */
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
-import { colors, radii, spacing, tones, typography, type ToneName } from '../theme/tokens';
+import { radii, spacing, typography, type ToneName } from '../theme/tokens';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
 
 type ChipProps = {
   label: string;
@@ -19,6 +20,8 @@ type ChipProps = {
 };
 
 export function Chip({ label, onPress, icon, dropdown, selected, badge }: ChipProps) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -62,6 +65,8 @@ type CategoryTileProps = {
 };
 
 export function CategoryTile({ label, icon, tone, selected, onPress }: CategoryTileProps) {
+  const styles = useStyles();
+  const { colors, tones } = useTheme();
   const hue = tone ? tones[tone] : undefined;
   return (
     <Pressable
@@ -94,7 +99,7 @@ export function CategoryTile({ label, icon, tone, selected, onPress }: CategoryT
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -144,4 +149,4 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
   },
-});
+}));

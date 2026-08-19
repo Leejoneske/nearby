@@ -42,7 +42,8 @@ import type { CategoryId, WeekHours } from '../../data/types';
 import { DAY_NAMES, formatDayRange } from '../../lib/hours';
 import { capturePin, describePin, type Pin } from '../../lib/pinLocation';
 import { useStore } from '../../lib/store';
-import { colors, radii, spacing, tones, typography } from '../../theme/tokens';
+import { radii, spacing, typography } from '../../theme/tokens';
+import { makeStyles, useTheme } from '../../theme/ThemeProvider';
 
 const STEPS = ['Business', 'Location', 'Contact', 'Details'] as const;
 
@@ -52,6 +53,8 @@ function emptyWeek(): WeekHours {
 }
 
 export default function ClaimScreen() {
+  const styles = useStyles();
+  const { colors, tones } = useTheme();
   const router = useRouter();
   const insets = useScreenInsets();
   const { addBusiness, session, userId } = useStore();
@@ -510,6 +513,8 @@ export default function ClaimScreen() {
 }
 
 function NextStep({ icon, text, last }: { icon: string; text: string; last?: boolean }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   return (
     <View style={[styles.nextStep, !last && styles.nextStepDivider]}>
       <Ionicons name={icon as never} size={17} color={colors.accent} />
@@ -518,7 +523,7 @@ function NextStep({ icon, text, last }: { icon: string; text: string; last?: boo
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   screen: { flex: 1, backgroundColor: colors.canvas },
 
   header: {
@@ -663,4 +668,4 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   sheetOptionLabel: { ...typography.body, color: colors.textPrimary, flex: 1 },
-});
+}));

@@ -7,11 +7,12 @@
  * remembered, and the next one asks again.
  */
 import { Ionicons } from '@expo/vector-icons';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, Text, View } from 'react-native';
 
 import { useScreenInsets } from '../lib/insets';
 import { formatSize, type Release } from '../lib/updates';
-import { colors, radii, spacing, tones, typography } from '../theme/tokens';
+import { radii, spacing, typography } from '../theme/tokens';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
 import { Button } from './Button';
 
 export type UpdateState =
@@ -36,6 +37,8 @@ export function UpdateSheet({
   onInstall: () => void;
   onDismiss: () => void;
 }) {
+  const styles = useStyles();
+  const { tones } = useTheme();
   const insets = useScreenInsets();
   if (!release) return null;
 
@@ -119,7 +122,7 @@ export function UpdateSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   backdrop: { flex: 1, backgroundColor: colors.overlay },
   sheet: {
     backgroundColor: colors.surface,
@@ -161,4 +164,4 @@ const styles = StyleSheet.create({
   progressLabel: { ...typography.caption, color: colors.textTertiary },
 
   actions: { gap: spacing.sm, marginTop: spacing.xl },
-});
+}));

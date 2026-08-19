@@ -13,7 +13,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -27,11 +26,14 @@ import {
 } from '../../lib/identity';
 import { useScreenInsets } from '../../lib/insets';
 import { supabase } from '../../lib/supabase';
-import { colors, radii, spacing, typography } from '../../theme/tokens';
+import { radii, spacing, typography } from '../../theme/tokens';
+import { makeStyles, useTheme } from '../../theme/ThemeProvider';
 
 const RESEND_SECONDS = 30;
 
 export default function VerifyScreen() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const router = useRouter();
   const insets = useScreenInsets();
   const { email } = useLocalSearchParams<{ email?: string }>();
@@ -167,7 +169,7 @@ export default function VerifyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   screen: { flex: 1, backgroundColor: colors.canvas },
   back: { width: 40, height: 40, justifyContent: 'center', marginBottom: spacing.xl },
   title: { ...typography.display, color: colors.textPrimary, marginBottom: spacing.sm },
@@ -196,4 +198,4 @@ const styles = StyleSheet.create({
   actions: { marginTop: spacing.xxxl, gap: spacing.xl, alignItems: 'center' },
   resend: { ...typography.metaStrong, color: colors.accent },
   resendWaiting: { color: colors.textTertiary },
-});
+}));

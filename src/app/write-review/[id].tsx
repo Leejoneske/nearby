@@ -18,7 +18,8 @@ import { EmptyState } from '../../components/primitives';
 import { initialsOf } from '../../lib/format';
 import { useScreenInsets } from '../../lib/insets';
 import { NeedsAccountError, useStore } from '../../lib/store';
-import { colors, radii, spacing, typography } from '../../theme/tokens';
+import { radii, spacing, typography } from '../../theme/tokens';
+import { makeStyles, useTheme } from '../../theme/ThemeProvider';
 
 const MIN_BODY = 10;
 const MAX_BODY = 1000;
@@ -27,6 +28,8 @@ const MAX_BODY = 1000;
 const RATING_WORDS = ['', 'Poor', 'Not great', 'Fine', 'Good', 'Excellent'];
 
 export default function WriteReviewScreen() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const router = useRouter();
   const insets = useScreenInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -202,7 +205,7 @@ export default function WriteReviewScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   screen: { flex: 1, backgroundColor: colors.canvas },
   failure: {
     ...typography.meta,
@@ -304,4 +307,4 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
-});
+}));

@@ -11,17 +11,12 @@ import { formatDelta, formatRelativeDate } from '../../../lib/format';
 import { openState } from '../../../lib/hours';
 import * as api from '../../../lib/api';
 import { useStore } from '../../../lib/store';
-import {
-  colors,
-  radii,
-  shadows,
-  spacing,
-  tones,
-  typography,
-  type ToneName,
-} from '../../../theme/tokens';
+import { radii, shadows, spacing, typography, type ToneName } from '../../../theme/tokens';
+import { makeStyles, useTheme } from '../../../theme/ThemeProvider';
 
 export default function OwnerDashboard() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const router = useRouter();
   const insets = useScreenInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -272,6 +267,8 @@ function StatTile({
   delta?: string;
   positive?: boolean;
 }) {
+  const styles = useStyles();
+  const { tones } = useTheme();
   return (
     <View style={styles.statTile}>
       <View style={[styles.statIcon, { backgroundColor: tones[tone].soft }]}>
@@ -307,6 +304,8 @@ function ActionRow({
   badge?: number;
   last?: boolean;
 }) {
+  const styles = useStyles();
+  const { colors, tones } = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -337,7 +336,7 @@ function ActionRow({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   screen: { flex: 1, backgroundColor: colors.canvas },
   centered: { justifyContent: 'center' },
 
@@ -436,4 +435,4 @@ const styles = StyleSheet.create({
   reviewSubRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   reviewDate: { ...typography.caption, color: colors.textTertiary },
   reviewBody: { ...typography.body, color: colors.textSecondary },
-});
+}));

@@ -19,11 +19,14 @@ import { Stars } from '../../../components/Stars';
 import { Avatar, Card, EmptyState } from '../../../components/primitives';
 import { formatRelativeDate } from '../../../lib/format';
 import { useStore } from '../../../lib/store';
-import { colors, radii, spacing, typography } from '../../../theme/tokens';
+import { radii, spacing, typography } from '../../../theme/tokens';
+import { makeStyles, useTheme } from '../../../theme/ThemeProvider';
 
 type Tab = 'all' | 'needsReply' | 'replied';
 
 export default function OwnerReviewsScreen() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const router = useRouter();
   const insets = useScreenInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -230,7 +233,7 @@ export default function OwnerReviewsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   failure: { ...typography.meta, color: colors.danger, marginTop: spacing.sm },
   screen: { flex: 1, backgroundColor: colors.canvas },
   centered: { justifyContent: 'center' },
@@ -292,4 +295,4 @@ const styles = StyleSheet.create({
   },
   composerActions: { flexDirection: 'row', gap: spacing.sm },
   composerButton: { flex: 1 },
-});
+}));

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useScreenInsets } from '../../lib/insets';
 
 import { Chip } from '../../components/Chip';
@@ -15,17 +15,12 @@ import { formatDistance, formatPriceRange } from '../../lib/format';
 import { openState } from '../../lib/hours';
 import { openDirections } from '../../lib/openLink';
 import { useStore } from '../../lib/store';
-import {
-  colors,
-  radii,
-  shadows,
-  spacing,
-  TAB_BAR_HEIGHT,
-  TAB_BAR_INSET,
-  typography,
-} from '../../theme/tokens';
+import { radii, shadows, spacing, TAB_BAR_HEIGHT, TAB_BAR_INSET, typography } from '../../theme/tokens';
+import { makeStyles, useTheme } from '../../theme/ThemeProvider';
 
 export default function MapScreen() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const router = useRouter();
   const insets = useScreenInsets();
   const { businesses, isSaved, toggleSaved, origin } = useStore();
@@ -249,7 +244,7 @@ export default function MapScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   screen: { flex: 1, backgroundColor: colors.mapLand },
 
   top: { position: 'absolute', left: 0, right: 0, top: 0, gap: spacing.md },
@@ -323,4 +318,4 @@ const styles = StyleSheet.create({
     ...shadows.card,
   },
   hintText: { ...typography.meta, color: colors.textSecondary },
-});
+}));

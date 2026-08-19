@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { formatRating, formatReviewCount } from '../lib/format';
-import { colors, typography } from '../theme/tokens';
+import { typography } from '../theme/tokens';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
 
 type Props = {
   rating: number;
@@ -20,6 +21,8 @@ export function Stars({
   size = 14,
   compact = false,
 }: Props) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   if (showAllStars) {
     return (
       <View style={styles.row}>
@@ -53,7 +56,7 @@ export function Stars({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   row: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   star: { marginRight: 1 },
   rating: {
@@ -65,4 +68,4 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     flexShrink: 1,
   },
-});
+}));

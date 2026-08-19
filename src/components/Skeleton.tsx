@@ -18,9 +18,10 @@
  *     promised something that was never coming.
  */
 import { useEffect, useState } from 'react';
-import { Animated, Easing, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Animated, Easing, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors, radii, spacing, shadows } from '../theme/tokens';
+import { radii, spacing, shadows } from '../theme/tokens';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
 
 /**
  * One shimmering block.
@@ -40,6 +41,7 @@ export function SkeletonBlock({
   radius?: number;
   style?: StyleProp<ViewStyle>;
 }) {
+  const { colors } = useTheme();
   /*
    * useState with a lazy initialiser rather than a ref: the value is read
    * during render to build the style, and reading a ref during render is the
@@ -91,6 +93,7 @@ export function SkeletonBlock({
 
 /** Stands in for a BusinessCard in a horizontal rail. */
 export function SkeletonCard() {
+  const styles = useStyles();
   return (
     <View style={styles.card}>
       <SkeletonBlock height={124} radius={radii.lg} />
@@ -103,6 +106,7 @@ export function SkeletonCard() {
 
 /** Stands in for a full-width listing row in a list. */
 export function SkeletonRow() {
+  const styles = useStyles();
   return (
     <View style={styles.row}>
       <SkeletonBlock width={84} height={84} radius={radii.lg} />
@@ -117,6 +121,7 @@ export function SkeletonRow() {
 
 /** A rail of cards, for a horizontally scrolling section. */
 export function SkeletonRail({ count = 3 }: { count?: number }) {
+  const styles = useStyles();
   return (
     <View style={styles.rail}>
       {Array.from({ length: count }, (_, i) => (
@@ -128,6 +133,7 @@ export function SkeletonRail({ count = 3 }: { count?: number }) {
 
 /** A stack of rows, for a vertical list. */
 export function SkeletonList({ count = 5 }: { count?: number }) {
+  const styles = useStyles();
   return (
     <View style={styles.list}>
       {Array.from({ length: count }, (_, i) => (
@@ -137,7 +143,7 @@ export function SkeletonList({ count = 5 }: { count?: number }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   card: {
     width: 208,
     backgroundColor: colors.surface,
@@ -161,4 +167,4 @@ const styles = StyleSheet.create({
   },
   rowBody: { flex: 1, gap: spacing.sm, paddingVertical: spacing.xs },
   list: { paddingHorizontal: spacing.screen, gap: spacing.md },
-});
+}));

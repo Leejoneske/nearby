@@ -14,7 +14,6 @@ import {
   NativeSyntheticEvent,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -22,7 +21,8 @@ import {
 import { Button } from '../components/Button';
 import { markIntroSeen } from '../lib/firstRun';
 import { useScreenInsets } from '../lib/insets';
-import { colors, radii, spacing, typography } from '../theme/tokens';
+import { radii, spacing, typography } from '../theme/tokens';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
 
 type Slide = {
   icon: string;
@@ -49,6 +49,8 @@ const SLIDES: Slide[] = [
 ];
 
 export default function IntroScreen() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const router = useRouter();
   const insets = useScreenInsets();
   const scrollRef = useRef<ScrollView>(null);
@@ -134,7 +136,7 @@ export default function IntroScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   screen: { flex: 1, backgroundColor: colors.canvas },
   top: {
     alignItems: 'flex-end',
@@ -208,4 +210,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.borderStrong,
   },
   dotActive: { width: 22, backgroundColor: colors.accent },
-});
+}));

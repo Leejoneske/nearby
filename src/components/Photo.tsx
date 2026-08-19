@@ -14,6 +14,7 @@ import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { CATEGORY_GRADIENTS, categoryOf } from '../data/categories';
 import type { CategoryId } from '../data/types';
 import { absoluteFill, radii } from '../theme/tokens';
+import { makeStyles } from '../theme/ThemeProvider';
 
 /** Small stable string hash, so the same id always picks the same variant. */
 function hash(seed: string): number {
@@ -45,6 +46,7 @@ export function Photo({
   showIcon = true,
   iconSize = 28,
 }: Props) {
+  const styles = useStyles();
   const container = [styles.base, { borderRadius: radius }, style];
 
   if (uri) {
@@ -95,21 +97,21 @@ export function Photo({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   base: {
     overflow: 'hidden',
-    backgroundColor: '#DDD',
+    backgroundColor: colors.photoPlaceholder,
   },
   blob: {
     position: 'absolute',
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: colors.photoTint,
   },
   iconWrap: {
     ...absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
+}));

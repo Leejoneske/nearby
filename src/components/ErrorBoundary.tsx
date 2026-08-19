@@ -6,10 +6,11 @@
  * Here it becomes a sentence, a way out, and a row an admin can read.
  */
 import { Component, type ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { reportError } from '../lib/errorReporting';
-import { colors, spacing, typography } from '../theme/tokens';
+import { spacing, typography } from '../theme/tokens';
+import { makeStyles } from '../theme/ThemeProvider';
 import { Button } from './Button';
 
 type Props = { children: ReactNode };
@@ -28,23 +29,34 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (!this.state.failed) return this.props.children;
-
-    return (
-      <View style={styles.screen}>
-        <Text style={styles.title}>Something went wrong</Text>
-        <Text style={styles.body}>
-          That is on us, and we have been told about it. Try again, and if it keeps
-          happening, closing the app and reopening it usually clears it.
-        </Text>
-        <View style={styles.action}>
-          <Button label="Try again" onPress={() => this.setState({ failed: false })} />
-        </View>
-      </View>
-    );
+    return <Fallback onRetry={() => this.setState({ failed: false })} />;
   }
 }
 
-const styles = StyleSheet.create({
+/*
+ * The visible half, split out because a class component cannot call a hook
+ * and the theme is one. Catching errors has to be a class — React offers no
+ * hook for it — so the boundary stays a class and the screen it shows does
+ * not.
+ */
+function Fallback({ onRetry }: { onRetry: () => void }) {
+  const styles = useStyles();
+
+  return (
+    <View style={styles.screen}>
+      <Text style={styles.title}>Something went wrong</Text>
+      <Text style={styles.body}>
+        That is on us, and we have been told about it. Try again, and if it keeps
+        happening, closing the app and reopening it usually clears it.
+      </Text>
+      <View style={styles.action}>
+        <Button label="Try again" onPress={onRetry} />
+      </View>
+    </View>
+  );
+}
+
+const useStyles = makeStyles((colors, tones) => ({
   screen: {
     flex: 1,
     backgroundColor: colors.canvas,
@@ -56,4 +68,4 @@ const styles = StyleSheet.create({
   title: { ...typography.title, color: colors.textPrimary, textAlign: 'center' },
   body: { ...typography.body, color: colors.textSecondary, textAlign: 'center' },
   action: { alignSelf: 'stretch', marginTop: spacing.md },
-});
+}));

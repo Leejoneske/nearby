@@ -9,10 +9,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { checkImage, PRESETS, presetRef } from '../lib/avatars';
-import { colors, spacing, tones, typography } from '../theme/tokens';
+import { spacing, typography } from '../theme/tokens';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
 import { Avatar } from './primitives';
 import { Button } from './Button';
 
@@ -28,6 +29,8 @@ export function AvatarPicker({
   onPick: (value: string | null, file?: { uri: string; type: string }) => void;
   uploading?: boolean;
 }) {
+  const styles = useStyles();
+  const { colors, tones } = useTheme();
   const [error, setError] = useState<string | null>(null);
 
   const pick = async () => {
@@ -116,7 +119,7 @@ export function AvatarPicker({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   wrap: { alignItems: 'center', gap: spacing.md },
   error: { ...typography.meta, color: colors.danger, textAlign: 'center' },
   or: { ...typography.meta, color: colors.textTertiary, marginTop: spacing.xs },
@@ -132,4 +135,4 @@ const styles = StyleSheet.create({
   },
   presetChosen: { borderColor: colors.textPrimary },
   clear: { ...typography.metaStrong, color: colors.textSecondary, marginTop: spacing.xs },
-});
+}));

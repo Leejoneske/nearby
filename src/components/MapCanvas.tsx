@@ -20,7 +20,8 @@ import { Camera, Map, Marker, UserLocation } from '@maplibre/maplibre-react-nati
 import { useState } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors, radii, shadows, tones, type ToneName } from '../theme/tokens';
+import { radii, shadows, type ToneName } from '../theme/tokens';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
 import { SchematicMap } from './SchematicMap';
 
 /**
@@ -65,6 +66,8 @@ type Props = {
 };
 
 export function MapCanvas({ region, markers, onSelectMarker, style }: Props) {
+  const styles = useStyles();
+  const { colors, tones } = useTheme();
   /*
    * A tile server that cannot be reached must not leave a blank rectangle.
    *
@@ -150,7 +153,7 @@ export function MapCanvas({ region, markers, onSelectMarker, style }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   marker: { alignItems: 'center' },
   pin: {
     width: 34,
@@ -175,4 +178,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 120,
   },
-});
+}));

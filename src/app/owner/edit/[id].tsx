@@ -23,9 +23,12 @@ import { CATEGORIES, CATEGORY_TONES, categoryOf } from '../../../data/categories
 import type { CategoryId, WeekHours } from '../../../data/types';
 import { DAY_NAMES, formatDayRange } from '../../../lib/hours';
 import { useStore } from '../../../lib/store';
-import { colors, radii, spacing, tones, typography } from '../../../theme/tokens';
+import { radii, spacing, typography } from '../../../theme/tokens';
+import { makeStyles, useTheme } from '../../../theme/ThemeProvider';
 
 export default function EditListingScreen() {
+  const styles = useStyles();
+  const { colors, tones } = useTheme();
   const router = useRouter();
   const insets = useScreenInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -337,7 +340,7 @@ function emptyWeek(): WeekHours {
   return [null, null, null, null, null, null, null];
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   failure: {
     ...typography.meta,
     color: colors.danger,
@@ -456,4 +459,4 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   sheetOptionLabel: { ...typography.body, color: colors.textPrimary, flex: 1 },
-});
+}));

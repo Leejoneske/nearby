@@ -12,7 +12,7 @@ import { NoticeBanner } from '../components/NoticeBanner';
 import { SuspendedGate } from '../components/SuspendedGate';
 import { UpdateGate } from '../components/UpdateGate';
 import { StoreProvider } from '../lib/store';
-import { colors } from '../theme/tokens';
+import { ThemeProvider, useTheme } from '../theme/ThemeProvider';
 
 /*
  * Hold the splash screen until we know whether this is a first run. Without
@@ -24,6 +24,20 @@ SplashScreen.preventAutoHideAsync().catch(() => {
 });
 
 export default function RootLayout() {
+  /*
+   * The provider wraps everything, including the store, so a screen rendered
+   * during startup already has a palette. `Shell` is a separate component
+   * because `useTheme` has to be called inside the provider, not beside it.
+   */
+  return (
+    <ThemeProvider>
+      <Shell />
+    </ThemeProvider>
+  );
+}
+
+function Shell() {
+  const { colors, scheme } = useTheme();
   const router = useRouter();
   const [checked, setChecked] = useState(false);
   const [needsIntro, setNeedsIntro] = useState(false);
@@ -54,7 +68,8 @@ export default function RootLayout() {
         {/* Outside the store, so a store that throws still lands here. */}
         <ErrorBoundary>
         <StoreProvider>
-          <StatusBar style="dark" />
+          {/* Follows the palette, or the icons in the tray vanish into it. */}
+          <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
           <UpdateGate>
             <Stack
               screenOptions={{

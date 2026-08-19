@@ -1,11 +1,13 @@
 import { useRouter } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Button } from '../components/Button';
 import { EmptyState } from '../components/primitives';
-import { colors, spacing } from '../theme/tokens';
+import { spacing } from '../theme/tokens';
+import { makeStyles } from '../theme/ThemeProvider';
 
 export default function NotFoundScreen() {
+  const styles = useStyles();
   const router = useRouter();
 
   return (
@@ -22,11 +24,11 @@ export default function NotFoundScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, tones) => ({
   screen: {
     flex: 1,
     justifyContent: 'center',
     backgroundColor: colors.canvas,
   },
   actions: { paddingHorizontal: spacing.huge, marginTop: spacing.lg },
-});
+}));
