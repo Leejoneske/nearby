@@ -6,7 +6,7 @@
  * alongside published ones, and until this existed it looked identical to
  * them. Somebody reasonably concluded that listings go live without approval.
  */
-export type ListingState = 'live' | 'pending' | 'suspended';
+export type ListingState = 'live' | 'pending' | 'suspended' | 'hidden';
 
 export type StateBadge = {
   label: string;
@@ -23,6 +23,19 @@ export function stateBadge(status: ListingState | undefined): StateBadge | null 
       tone: 'accent',
       icon: 'time-outline',
       note: 'Only you can see this. We read every listing before it goes live, which usually takes a day.',
+    };
+  }
+  /*
+   * `hidden` is the owner's own doing and `suspended` is ours, so they read
+   * differently on purpose. One is a pause with a way back on the same
+   * screen; the other is a decision somebody has to talk to us about.
+   */
+  if (status === 'hidden') {
+    return {
+      label: 'Off the directory',
+      tone: 'neutral',
+      icon: 'eye-off-outline',
+      note: 'You took this down, so only you can see it. Your reviews are still here, and you can put it back whenever you like.',
     };
   }
   if (status === 'suspended') {

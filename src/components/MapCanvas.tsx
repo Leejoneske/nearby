@@ -16,7 +16,7 @@
  * than crash.
  */
 import { Ionicons } from '@expo/vector-icons';
-import { Camera, Map, Marker, UserLocation } from '@maplibre/maplibre-react-native';
+import { Camera, GeoJSONSource, Layer, Map, Marker, UserLocation } from '@maplibre/maplibre-react-native';
 import { useState } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
@@ -62,10 +62,14 @@ type Props = {
   region: Region;
   markers: MapMarker[];
   onSelectMarker?: (id: string) => void;
+  /** A route to draw, in order. Nothing is drawn when it is empty. */
+  route?: { lat: number; lng: number }[];
+  /** Told what went wrong, so a blank map stops being a mystery. */
+  onFailure?: (reason: string) => void;
   style?: StyleProp<ViewStyle>;
 };
 
-export function MapCanvas({ region, markers, onSelectMarker, style }: Props) {
+export function MapCanvas({ region, markers, onSelectMarker, route, onFailure, style }: Props) {
   const styles = useStyles();
   const { colors, tones } = useTheme();
   /*
@@ -86,6 +90,7 @@ export function MapCanvas({ region, markers, onSelectMarker, style }: Props) {
         region={region}
         markers={markers}
         onSelectMarker={onSelectMarker}
+        route={route}
         style={style}
       />
     );
@@ -100,7 +105,19 @@ export function MapCanvas({ region, markers, onSelectMarker, style }: Props) {
       attribution
       logo={false}
       compass={false}
-      onDidFailLoadingMap={() => setFailedAt(where)}
+      onDidFailLoadingMap={() => {
+        /*
+         * The drawn map takes over, and the reason leaves the device.
+         *
+         * A basemap that renders as one flat colour with pins floating on it
+         * is the hardest kind of bug to act on: it looks like a map, so
+         * nobody reports it as a failure, and nothing is written down. This
+         * sends it to `client_errors`, where the console's Health page
+         * groups it by message.
+         */
+        setFailedAt(where);
+        onFailure?.(`the basemap did not load (${STYLE_URL})`);
+      }}
     >
       {/*
         * Controlled rather than initial-only, so "centre on my location" and
@@ -114,6 +131,44 @@ export function MapCanvas({ region, markers, onSelectMarker, style }: Props) {
         duration={450}
       />
       <UserLocation />
+
+      {/*
+        * The route, under the pins.
+        *
+        * Two layers rather than one: a wide pale casing and a narrow solid
+        * line on top. A single stroke disappears against a road of a similar
+        * colour, which is most of them.
+        */}
+      {route && route.length > 1 ? (
+        <GeoJSONSource
+          id="nearby-route"
+          data={{
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'LineString',
+              coordinates: route.map((p) => [p.lng, p.lat]),
+            },
+          }}
+        >
+          <Layer
+            id="nearby-route-casing"
+            type="line"
+            paint={{
+              'line-color': colors.surface,
+              'line-width': 9,
+              'line-opacity': 0.9,
+            }}
+            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+          />
+          <Layer
+            id="nearby-route-line"
+            type="line"
+            paint={{ 'line-color': colors.accent, 'line-width': 5 }}
+            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+          />
+        </GeoJSONSource>
+      ) : null}
 
       {markers.map((marker) => (
         <Marker

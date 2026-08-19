@@ -131,6 +131,8 @@ type StoreValue = {
   deleteAccount: (reason?: string) => Promise<void>;
   /** Removes a listing this person owns, with its reviews. Throws with a reason. */
   deleteBusiness: (businessId: string, reason?: string) => Promise<void>;
+  /** Takes a listing off the directory, or puts it back. Nothing is destroyed. */
+  setBusinessListed: (businessId: string, listed: boolean, reason?: string) => Promise<void>;
 
   savedIds: string[];
   isSaved: (id: string) => boolean;
@@ -918,6 +920,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [businesses, loadBusinesses],
   );
 
+  /**
+   * The soft one: hide or publish, with everything kept.
+   *
+   * Reloads for the same reason `deleteBusiness` does — the status lives in
+   * the database, and rebuilding the list from what is actually there is the
+   * only version of this that cannot drift out of step with it.
+   */
+  const setBusinessListed = useCallback(
+    async (businessId: string, listed: boolean, reason = '') => {
+      const business = businesses.find((b) => b.id === businessId);
+      if (!business?.dbId) throw new Error('That listing is not loaded.');
+
+      await api.setMyBusinessListed(business.dbId, listed, reason);
+      await loadBusinesses();
+    },
+    [businesses, loadBusinesses],
+  );
+
   const ownedBusinesses = useMemo(
     () => businesses.filter((b) => b.ownedByViewer),
     [businesses],
@@ -978,6 +998,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       clearSuspension,
       deleteAccount,
       deleteBusiness,
+      setBusinessListed,
       savedIds,
       isSaved,
       toggleSaved,
@@ -999,7 +1020,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       viewer, session, profileId, signOut, updateViewer, profileLoaded, needsName,
       notifications, unreadCount, markNotificationRead, markAllNotificationsRead,
       refreshNotifications, incoming, dismissIncoming,
-      suspension, clearSuspension, deleteAccount, deleteBusiness,
+      suspension, clearSuspension, deleteAccount, deleteBusiness, setBusinessListed,
       savedIds, isSaved, toggleSaved, recentIds, markViewed,
       recentQueries, recordSearch, recommendations,
       getBusiness, ownedBusinesses, updateBusiness, addBusiness, reportBusiness,

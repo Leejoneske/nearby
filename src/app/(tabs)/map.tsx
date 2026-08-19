@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useScreenInsets } from '../../lib/insets';
 
@@ -12,8 +12,11 @@ import { Stars } from '../../components/Stars';
 import { CATEGORIES, CATEGORY_TONES, categoryOf } from '../../data/categories';
 import type { CategoryId } from '../../data/types';
 import { formatDistance, formatPriceRange } from '../../lib/format';
+import { reportError } from '../../lib/errorReporting';
 import { openState } from '../../lib/hours';
+import { countOutside, frameFor } from '../../lib/mapFrame';
 import { openDirections } from '../../lib/openLink';
+import { describeRoute, fetchRoute, type Route } from '../../lib/route';
 import { useStore } from '../../lib/store';
 import { radii, shadows, spacing, TAB_BAR_HEIGHT, TAB_BAR_INSET, typography } from '../../theme/tokens';
 import { makeStyles, useTheme } from '../../theme/ThemeProvider';
@@ -23,7 +26,7 @@ export default function MapScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const insets = useScreenInsets();
-  const { businesses, isSaved, toggleSaved, origin } = useStore();
+  const { businesses, isSaved, toggleSaved, origin, locationPrecise } = useStore();
 
   // Arriving from a listing's Directions button: open on that one.
   const { focus } = useLocalSearchParams<{ focus?: string }>();
@@ -61,15 +64,62 @@ export default function MapScreen() {
    * The span tightens when there is one place to look at: a 7 km window
    * around a single shop tells you nothing about where it is.
    */
-  const region = useMemo(() => {
-    const span = selected ? 0.012 : 0.075;
-    return {
-      latitude: selected?.lat ?? origin.lat,
-      longitude: selected?.lng ?? origin.lng,
-      latitudeDelta: span,
-      longitudeDelta: span,
+  /*
+   * Frame everything, rather than a fixed window around the device.
+   *
+   * The window used to be 0.075 degrees — eight kilometres — centred on
+   * wherever the phone was. Every listing further out than that was on the
+   * map, correctly positioned, and off the edge of the screen. From inside
+   * the app that is indistinguishable from a map that has lost the listings,
+   * and that is exactly what it was reported as.
+   *
+   * `frameFor` is in `lib/mapFrame.ts` with the awkward cases pinned down by
+   * tests: two pins a hundred kilometres apart, pins on top of each other, a
+   * 0,0 coordinate from a listing that never got a real one.
+   */
+  const region = useMemo(
+    () => frameFor(visible, origin, selected),
+    [visible, origin, selected],
+  );
+
+  /*
+   * A real route, drawn on our own map.
+   *
+   * Asked for only when there is somewhere to go and somewhere to go from.
+   * The answer is allowed to be nothing — it comes from a free public
+   * routing server — and nothing means the card still shows the straight
+   * line distance it always did.
+   */
+  /*
+   * The route is stored against the listing it belongs to, not on its own.
+   *
+   * That is what makes it safe to leave in state while a new one loads: a
+   * route to the last place you tapped, drawn over the place you just tapped,
+   * is worse than no line at all. Comparing the id at render time means there
+   * is nothing to clear and no effect that resets state as it runs.
+   */
+  const [routed, setRouted] = useState<{ forId: string; route: Route | null } | null>(null);
+
+  const goingToId = selected?.id ?? null;
+  const goingToLat = selected?.lat;
+  const goingToLng = selected?.lng;
+
+  useEffect(() => {
+    if (goingToId === null || goingToLat === undefined || goingToLng === undefined) return;
+    if (!locationPrecise) return;
+
+    let alive = true;
+    (async () => {
+      const found = await fetchRoute(origin, { lat: goingToLat, lng: goingToLng });
+      if (alive) setRouted({ forId: goingToId, route: found });
+    })();
+    return () => {
+      alive = false;
     };
-  }, [selected, origin.lat, origin.lng]);
+  }, [goingToId, goingToLat, goingToLng, origin, locationPrecise]);
+
+  const route = routed && routed.forId === goingToId ? routed.route : null;
+  const routing = locationPrecise && goingToId !== null && routed?.forId !== goingToId;
 
   const markers = useMemo(
     () =>
@@ -85,6 +135,8 @@ export default function MapScreen() {
     [visible, selectedId],
   );
 
+  const offscreen = useMemo(() => countOutside(visible, region), [visible, region]);
+
   const cardBottom = TAB_BAR_HEIGHT + TAB_BAR_INSET + Math.max(insets.bottom, TAB_BAR_INSET) + spacing.sm;
 
   return (
@@ -92,10 +144,17 @@ export default function MapScreen() {
       <MapCanvas
         region={region}
         markers={markers}
+        route={route?.points}
         onSelectMarker={(id) => {
           setFollowMe(false);
           setPicked(id);
         }}
+        /*
+         * A basemap that fails renders as one flat colour with pins floating
+         * on it, which looks enough like a map that nobody reports it. This
+         * puts the reason in `client_errors`, where the console groups it.
+         */
+        onFailure={(reason) => reportError('map/basemap', new Error(reason))}
       />
 
       {/* Floating search + filters */}
@@ -142,6 +201,30 @@ export default function MapScreen() {
           ))}
         </ScrollView>
       </View>
+
+      {/*
+        * Says when there is more than what is on screen.
+        *
+        * Offered rather than done: somebody who panned somewhere on purpose
+        * should not have the camera yanked back under them. Tapping clears
+        * the selection, which is what re-frames the map around everything.
+        */}
+      {offscreen > 0 ? (
+        <Pressable
+          onPress={() => {
+            setPicked(null);
+            setFollowMe(false);
+            router.setParams({ focus: undefined });
+          }}
+          accessibilityRole="button"
+          style={[styles.showAll, { bottom: cardBottom + (selected ? 150 : 8) }]}
+        >
+          <Ionicons name="scan-outline" size={15} color={colors.textPrimary} />
+          <Text style={styles.showAllText}>
+            {offscreen} more off screen
+          </Text>
+        </Pressable>
+      ) : null}
 
       {/* Re-centre control, parked above the detail card */}
       <Pressable
@@ -194,6 +277,20 @@ export default function MapScreen() {
                   {selected.address} · {formatDistance(selected.distanceM)}
                 </Text>
               </View>
+              {/*
+                * The straight-line distance above is always true. This is the
+                * road, and it only appears once a route has actually come
+                * back — a spinner that resolves to nothing would be worse
+                * than never having offered.
+                */}
+              {routing || route ? (
+                <View style={styles.cardMetaRow}>
+                  <Ionicons name="navigate" size={11} color={colors.accent} />
+                  <Text style={[styles.cardMeta, styles.cardRoute]} numberOfLines={1}>
+                    {route ? describeRoute(route) : 'Working out the route'}
+                  </Text>
+                </View>
+              ) : null}
               <Text
                 style={[
                   styles.cardState,
@@ -220,7 +317,7 @@ export default function MapScreen() {
                 />
               </Pressable>
               <Pressable
-                onPress={() => openDirections(selected.lat, selected.lng, selected.name)}
+                onPress={() => void openDirections(selected.lat, selected.lng, selected.name)}
                 accessibilityRole="button"
                 accessibilityLabel={`Directions to ${selected.name}`}
                 style={[styles.cardIconButton, styles.cardIconPrimary]}
@@ -291,6 +388,20 @@ const useStyles = makeStyles((colors, tones) => ({
   cardBody: { flex: 1, gap: 2, paddingVertical: 2 },
   cardName: { ...typography.cardTitle, color: colors.textPrimary },
   cardMetaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  cardRoute: { color: colors.accent, fontWeight: '700' },
+  showAll: {
+    position: 'absolute',
+    left: spacing.screen,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs + 2,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface,
+    ...shadows.card,
+  },
+  showAllText: { ...typography.metaStrong, color: colors.textPrimary },
   cardMeta: { ...typography.caption, fontSize: 11.5, color: colors.textSecondary, flexShrink: 1 },
   cardState: { ...typography.caption, fontSize: 11.5, marginTop: 2 },
   open: { color: colors.success },

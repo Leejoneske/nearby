@@ -28,7 +28,12 @@ export function Stat({
 }
 
 export function StatusPill({ status }: { status: BusinessStatus }) {
-  const label = { live: 'Live', pending: 'Pending', suspended: 'Suspended' }[status];
+  const label = {
+    live: 'Live',
+    pending: 'Pending',
+    suspended: 'Suspended',
+    hidden: 'Closed by owner',
+  }[status];
   return <span className={`pill ${status}`}>{label}</span>;
 }
 

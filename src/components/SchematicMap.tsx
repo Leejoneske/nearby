@@ -23,6 +23,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { segmentsOf, thin } from '../lib/route';
 import { radii, shadows, type ToneName } from '../theme/tokens';
 import { makeStyles, useTheme } from '../theme/ThemeProvider';
 
@@ -48,10 +49,15 @@ type Props = {
   region: Region;
   markers: MapMarker[];
   onSelectMarker?: (id: string) => void;
+  /** The same route the real map draws, so the fallback loses nothing. */
+  route?: { lat: number; lng: number }[];
   style?: StyleProp<ViewStyle>;
 };
 
-export function SchematicMap({ region, markers, onSelectMarker, style }: Props) {
+/** Thick enough to read against the drawn roads underneath. */
+const ROUTE_WIDTH = 5;
+
+export function SchematicMap({ region, markers, onSelectMarker, route, style }: Props) {
   const styles = useStyles();
   const { colors, tones } = useTheme();
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -75,6 +81,41 @@ export function SchematicMap({ region, markers, onSelectMarker, style }: Props) 
   return (
     <View style={[StyleSheet.absoluteFill, styles.canvas, style]} onLayout={onLayout}>
       <MapDecor />
+
+      {/*
+        * The route, as straight bars between its points.
+        *
+        * Real geometry drawn without a renderer: each pair of consecutive
+        * points becomes one bar, positioned at the midpoint and rotated to
+        * face the next point — React Native rotates about the centre, so the
+        * midpoint is the placement that needs no transform origin.
+        *
+        * Thinned first. A polyline is hundreds of coordinates, and hundreds
+        * of views to draw one line is not a trade worth making at this size.
+        */}
+      {size.width > 0 && route && route.length > 1
+        ? segmentsOf(thin(route, 60)).map(([from, to], i) => {
+            const a = project(from.lat, from.lng);
+            const b = project(to.lat, to.lng);
+            const length = Math.hypot(b.x - a.x, b.y - a.y);
+            if (!Number.isFinite(length) || length < 0.5) return null;
+            return (
+              <View
+                key={`route-${i}`}
+                pointerEvents="none"
+                style={[
+                  styles.routeSegment,
+                  {
+                    left: (a.x + b.x) / 2 - length / 2,
+                    top: (a.y + b.y) / 2 - ROUTE_WIDTH / 2,
+                    width: length,
+                    transform: [{ rotateZ: `${Math.atan2(b.y - a.y, b.x - a.x)}rad` }],
+                  },
+                ]}
+              />
+            );
+          })
+        : null}
 
       {size.width > 0
         ? markers.map((marker) => {
@@ -173,6 +214,12 @@ const useStyles = makeStyles((colors, tones) => ({
   canvas: {
     backgroundColor: colors.mapLand,
     overflow: 'hidden',
+  },
+  routeSegment: {
+    position: 'absolute',
+    height: ROUTE_WIDTH,
+    borderRadius: ROUTE_WIDTH / 2,
+    backgroundColor: colors.accent,
   },
   water: {
     position: 'absolute',

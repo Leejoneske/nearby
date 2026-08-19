@@ -6,7 +6,7 @@
  *
  * These wrap it so the failure is visible to the person who tapped.
  */
-import { Alert, Linking } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 
 async function open(url: string, whenItFails: string) {
   try {
@@ -34,13 +34,52 @@ export function openWebsite(website: string) {
 }
 
 /**
- * Hands the coordinates to whatever map app the phone uses. Web falls through
- * to Google Maps in a new tab, which is the only thing a browser can do.
+ * Hands the coordinates to whatever map app the phone actually has.
+ *
+ * This used to build a `google.com/maps/search` URL on every platform, which
+ * opens a browser rather than a map app, and put the listing's name into
+ * `query_place_id` — a parameter that expects one of Google's own place ids,
+ * so a name in it is either ignored or breaks the link.
+ *
+ * Now it asks the platform first and falls back to the web:
+ *
+ *   Android  `geo:` is the documented intent for "show me this point", and
+ *            every map app on the device registers for it, so the person
+ *            gets whichever one they chose rather than whichever one we did.
+ *   iOS      `maps://` is Apple Maps. Google Maps registers `comgooglemaps://`
+ *            but only when it is installed, and probing for that needs a
+ *            declared URL scheme for no real gain.
+ *   Web      A browser can only ever open a web map.
+ *
+ * The label rides along as the pin's name where the scheme supports it, which
+ * is what makes the destination read as the business rather than as a pair of
+ * numbers.
  */
-export function openDirections(lat: number, lng: number, label?: string) {
-  const query = label ? encodeURIComponent(label) : `${lat},${lng}`;
-  void open(
-    `https://www.google.com/maps/search/?api=1&query=${lat},${lng}&query_place_id=${query}`,
-    'No map app is available on this device.',
-  );
+export async function openDirections(lat: number, lng: number, label?: string) {
+  const name = (label ?? '').trim();
+  const web =
+    `https://www.google.com/maps/search/?api=1&query=${lat}%2C${lng}`;
+
+  const native =
+    Platform.OS === 'android'
+      ? `geo:${lat},${lng}?q=${lat},${lng}${name ? `(${encodeURIComponent(name)})` : ''}`
+      : Platform.OS === 'ios'
+        ? `maps://?ll=${lat},${lng}${name ? `&q=${encodeURIComponent(name)}` : ''}`
+        : null;
+
+  if (native) {
+    try {
+      // `canOpenURL` rather than a bare attempt: on Android a device with no
+      // map app at all throws, and the web fallback is a better answer than
+      // an alert saying we could not do it.
+      if (await Linking.canOpenURL(native)) {
+        await Linking.openURL(native);
+        return;
+      }
+    } catch {
+      // Fall through to the browser.
+    }
+  }
+
+  void open(web, 'No map app is available on this device.');
 }

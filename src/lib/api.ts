@@ -556,6 +556,31 @@ export async function fetchMyDevices(): Promise<KnownDevice[]> {
 }
 
 /**
+ * Takes a listing off the directory, or puts it back.
+ *
+ * The soft one. Nothing is destroyed: the reviews, the photos and the history
+ * all stay, and the only thing that changes is whether anybody else can find
+ * it. This is what an owner closing for a fortnight actually wants, and until
+ * it existed the only way to do it was to delete the listing outright.
+ */
+export async function setMyBusinessListed(
+  businessDbId: string,
+  listed: boolean,
+  reason = '',
+): Promise<void> {
+  const { error } = await supabase.rpc('set_my_business_listed', {
+    in_business_id: businessDbId,
+    in_listed: listed,
+    in_reason: reason.trim(),
+  });
+  if (error) {
+    throw new Error(
+      error.message || (listed ? 'We could not put that back.' : 'We could not take that down.'),
+    );
+  }
+}
+
+/**
  * Removes a listing the signed-in person owns.
  *
  * The reviews on it go with it, and there is no way back — the database

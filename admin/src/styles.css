@@ -399,6 +399,12 @@ tbody tr:hover {
   color: var(--red);
 }
 
+/* Grey, not red: nobody took action against this one, its owner closed it. */
+.pill.hidden {
+  background: var(--sunken);
+  color: var(--text-2);
+}
+
 .pill.verified {
   background: var(--steel-soft);
   color: var(--steel);

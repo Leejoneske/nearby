@@ -7,7 +7,13 @@
  */
 import { supabase } from './supabase';
 
-export type BusinessStatus = 'live' | 'pending' | 'suspended';
+/*
+ * `hidden` is the owner's own off switch and is not a moderation state.
+ * Worth keeping distinct from `suspended` here above all: a console that
+ * showed both as "Suspended" would have staff going through a queue of
+ * businesses nobody took action against.
+ */
+export type BusinessStatus = 'live' | 'pending' | 'suspended' | 'hidden';
 export type ReportState = 'open' | 'actioned' | 'dismissed';
 
 export type Overview = {

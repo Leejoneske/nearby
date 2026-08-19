@@ -348,6 +348,101 @@ while it checks, and leaves `verified` false. Claiming is a request to manage
 a listing, not proof it is yours, and until there is something that reviews
 those requests, `claimed_at`/`claimed_by` is the record that it happened.
 
+## A pin has to be a street, not a sub-county
+
+`reverseGeocodeAsync` hands back a bag of administrative names at wildly
+different scales — a street, an estate, a ward, a sub-county, a county — and
+which of them are filled in depends on how well mapped that spot is. The pin
+took whichever one it found and put it in the area field, so a shop on a named
+road was filed under a sub-county you can drive across in half an hour.
+
+`lib/place.ts` chooses both fields by specificity and fills both from one
+lookup: `streetLine` for the address, `areaLine` for the neighbourhood.
+`subregion` is last in both, because it is the field that was causing this.
+Neither overwrites text somebody already typed — a person standing outside
+their own shop knows the address better than the geocoder does.
+
+The accuracy is also shown now, and a fix looser than about fifty metres says
+so. It is a caution, not a refusal: the pin is still saved, because the useful
+thing is to let them correct the words, not to throw the fix away.
+
+## What the map is looking at
+
+The camera used to sit on a fixed window around the device — 0.075 degrees,
+call it eight kilometres. Every listing further out was in the marker list,
+correctly positioned, and off the edge of the screen. From inside the app that
+is indistinguishable from a map that has lost the listings, and that is how it
+was reported.
+
+`lib/mapFrame.ts` computes the frame from the pins, with the awkward cases
+pinned down by tests: two listings a hundred kilometres apart, listings on top
+of each other, a `0,0` coordinate from a row that never got a real one, a
+spread wide enough to need capping before the map becomes a globe. When some
+pins are still outside — because somebody panned, or picked one — the map says
+how many rather than yanking the camera back under them.
+
+A basemap that fails is the hardest kind of bug to hear about, because it
+renders as one flat colour with pins floating on it and still looks like a
+map. `onDidFailLoadingMap` now reports to `client_errors` as well as swapping
+in `SchematicMap`, so the console's Health page has the reason.
+
+## Directions had to actually go somewhere
+
+The note below this one claimed directions stayed in the app. They did not:
+the button built a `google.com/maps/search` URL and opened a browser, which
+loses the listing, hands the person to somebody else's map, and on a phone
+without a browser does nothing at all. It also passed the business name in
+`query_place_id`, a parameter that wants one of Google's own place ids.
+
+Now there is a real route. `lib/route.ts` asks OSRM's public demo server — no
+key, no account, same reasoning as the tiles — decodes the polyline, and the
+map draws it under the pins as a casing plus a line, because a single stroke
+disappears against a road of a similar colour. The card gains the road
+distance and a time next to the straight-line distance it always had.
+
+Two things that keep this honest:
+
+- **Every caller survives getting nothing.** It is a free demo server, so a
+  timeout, an HTML error page and a truncated body are all ordinary, and all
+  of them mean "show the straight-line distance you already had".
+- **The route is stored against the listing it belongs to**, not on its own,
+  so a route to the last place you tapped is never drawn over the place you
+  just tapped. That is also why no effect has to clear it.
+
+`openDirections` still exists for "open in Maps", and now opens the platform's
+own map app — `geo:` on Android, which every map app registers for, so people
+get the one they chose rather than the one we did.
+
+## Closing a listing is not deleting it
+
+An owner could take a listing off the directory exactly one way: delete it,
+along with the reviews people wrote. So the screen had to warn like a
+deletion, which made it identical to deleting an account — reported as
+confusing, and rightly, because the two really did carry the same weight.
+
+They should not. Closing for renovation, going quiet for a season, or pulling
+a listing while it is rewritten are ordinary things, and none of them should
+cost the reviews.
+
+`hidden` is the owner's own off switch, and it is deliberately not
+`suspended`. Suspension is something we did to them and has to be explainable
+later; this is something they did to theirs. Collapsing the two would leave
+the console unable to tell an owner on holiday from a business we took action
+against, which is why the console shows "Closed by owner" in grey rather than
+red and keeps it out of every queue.
+
+It needs no policy change: `businesses_select_visible` only ever published
+`live`, and `businesses_nearby` runs as the caller, so it inherits that.
+
+`set_my_business_listed` refuses two things on purpose. A suspended listing
+cannot be republished by its owner, or "put it back" would be a one-tap way
+out of a suspension. A pending listing cannot be hidden, because there is
+nothing published to take down.
+
+Deleting is still there, below the fold, as a plain link rather than a red
+button — it is for a listing that should never have existed, and it says that
+the reviews go with it.
+
 ## The map needs no key, and that is the point
 
 Android's Maps SDK needs an API key tied to a billing account. Given a missing
@@ -567,30 +662,38 @@ seconds. That is not the same rule — it is there because screens re-run their
 effects on focus, on a theme change and on a hot reload, and each one used to
 write a row.
 
-## Nothing pushes
+## Nothing pushes, and Supabase is not the reason
 
-There is no `expo-notifications` in this project and no FCM configuration, so
-the app has never posted an Android notification and has no channels. The
-Android settings page saying "This app hasn't received any notifications yet"
-is accurate, not a bug.
+Asked directly: no, the app does not need moving anywhere. It is already on
+Supabase, and Supabase is not what is missing.
 
-What does exist is entirely in-app: rows in `notifications`, a bell on the
-profile tab, a screen listing them, and a banner that slides in over whatever
-is on screen while the app is open. That is real and it works. It just cannot
-wake a phone that is in a pocket.
+Android will not let an app be woken from outside except through Firebase
+Cloud Messaging. That is not a Supabase limitation, a React Native
+limitation, or a hosting choice — it is the operating system. Any backend
+that pushes to an Android phone, including Supabase, does it by asking FCM
+to. The alternatives are a foreground service with a permanent notification,
+which is user-hostile and fights Play policy, or polling, which cannot run
+while the app is closed.
 
-Making it push needs three things that are not code decisions:
+So there is no workaround, and there is also nothing to migrate. What is
+missing is one free thing:
 
-1. A Firebase project for `app.nearby.directory`, and its `google-services.json`
-   committed or injected at build time.
-2. `expo-notifications` plus a `push_tokens` table and a token registered per
-   device on launch.
-3. Something server side to send — an edge function on the notification
-   trigger, posting to FCM with a service-account credential.
+1. A Firebase project for `app.nearby.directory`, and its
+   `google-services.json` in the build. Free, no card.
+2. `expo-notifications`, a `push_tokens` table, and a token registered per
+   device at launch.
+3. A Supabase edge function on the notification trigger, posting to FCM with
+   a service-account credential held in Supabase secrets.
 
-Until step 1 exists there is nothing to test against, and shipping the app half
-of it would add a dependency to every APK for a feature that silently does
-nothing. So it is not shipped, and this is the note saying why.
+Steps 2 and 3 are ours. Step 1 is not, and until it exists there is nothing
+to test against — which is why `expo-notifications` is not in `package.json`.
+Adding it would put an FCM dependency in every APK for a feature that
+silently does nothing, and would work against the download size.
+
+What does exist is entirely in-app and does work: rows in `notifications`, a
+bell on the profile tab, a screen listing them, and a banner that slides in
+over whatever is on screen while the app is open. It simply cannot wake a
+phone that is in a pocket.
 
 ## Why the APK is the size it is, and what actually moves it
 

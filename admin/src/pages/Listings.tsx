@@ -262,6 +262,7 @@ export function Listings({ initialQuery = '' }: { initialQuery?: string }) {
           <option value="live">Live</option>
           <option value="pending">Waiting for review</option>
           <option value="suspended">Suspended</option>
+          <option value="hidden">Closed by owner</option>
         </select>
         <label className="toggle">
           <input

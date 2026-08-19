@@ -88,7 +88,7 @@ export type Business = {
    * copy can say which it is, rather than sitting in the directory looking
    * published when it is not.
    */
-  status?: 'live' | 'pending' | 'suspended';
+  status?: 'live' | 'pending' | 'suspended' | 'hidden';
   /** Promotion shown in the "Today's offers" rail. */
   offer?: { label: string; detail: string };
 };

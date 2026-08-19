@@ -21,10 +21,11 @@ export default function OwnerDashboard() {
   const router = useRouter();
   const insets = useScreenInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getBusiness, deleteBusiness } = useStore();
+  const { getBusiness, deleteBusiness, setBusinessListed } = useStore();
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [reason, setReason] = useState('');
+  const [listing, setListing] = useState(false);
 
   const business = getBusiness(id);
   const now = useMemo(() => new Date(), []);
@@ -54,40 +55,52 @@ export default function OwnerDashboard() {
   }, [business?.dbId]);
 
   /*
-   * Taking a listing down, with what it costs said first.
+   * Two different actions, deliberately not the same weight.
    *
-   * Two prompts rather than one. This removes reviews other people wrote
-   * about a real place, and there is no claim flow, so nobody can pick the
-   * listing up afterwards — it would have to be added again from nothing.
+   * Taking a listing off the directory is a status change: the reviews, the
+   * photos and the history all stay, and it goes back up with one tap. That
+   * is what an owner closing for a fortnight actually wants, and it is the
+   * one offered first.
    *
-   * The reason is a field on the screen rather than a prompt in the dialog.
-   * `Alert.prompt` is iOS only, so a dialog that asks for it would be a
-   * question half the people using this app never get shown.
+   * Deleting is the rare one — a duplicate, a test, a business that will
+   * never exist again — and it destroys the reviews other people wrote. It
+   * used to be the only option, which meant the screen had to warn like a
+   * deletion for what is usually a pause, and ended up looking exactly like
+   * ending an account. That was reported as confusing, and it was.
    */
-  const confirmRemove = () => {
+  const unlist = async (listed: boolean) => {
+    if (!business) return;
+    setListing(true);
+    setRemoveError(null);
+    try {
+      await setBusinessListed(business.id, listed, reason);
+    } catch (e) {
+      setRemoveError(
+        e instanceof Error && e.message.trim()
+          ? e.message
+          : 'We could not change that just now. Try again.',
+      );
+    } finally {
+      setListing(false);
+    }
+  };
+
+  const confirmDelete = () => {
     if (!business) return;
     const reviews = business.reviews.length;
     const detail = [
-      `${business.name} comes off the directory for good.`,
+      `${business.name} and everything on it goes for good.`,
       reviews > 0
-        ? `The ${reviews} ${reviews === 1 ? 'review' : 'reviews'} people wrote about it go too.`
+        ? `The ${reviews} ${reviews === 1 ? 'review' : 'reviews'} people wrote about it go too, and cannot be recovered.`
         : null,
-      'Nobody else can take it over, and it cannot be brought back.',
+      'If you only want it off the directory for a while, close it instead and put it back whenever you like.',
     ]
       .filter(Boolean)
       .join('\n\n');
 
-    Alert.alert('Remove this listing?', detail, [
-      { text: 'Keep it', style: 'cancel' },
-      {
-        text: 'Continue',
-        style: 'destructive',
-        onPress: () =>
-          Alert.alert('Last chance', 'This cannot be undone. Remove it now?', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Remove it', style: 'destructive', onPress: () => void remove() },
-          ]),
-      },
+    Alert.alert('Delete this listing for good?', detail, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete it', style: 'destructive', onPress: () => void remove() },
     ]);
   };
 
@@ -120,6 +133,7 @@ export default function OwnerDashboard() {
     );
   }
 
+  const hidden = business.status === 'hidden';
   const state = openState(business.hours, now);
   const unanswered = business.reviews.filter((r) => !r.ownerReply);
 
@@ -307,31 +321,55 @@ export default function OwnerDashboard() {
           )}
         </View>
 
-        {/* Removing it */}
-        <Text style={styles.sectionTitle}>Remove this listing</Text>
+        {/* Taking it down, and the rarer, heavier thing underneath */}
+        <Text style={styles.sectionTitle}>
+          {hidden ? 'Put it back' : 'Close this listing'}
+        </Text>
         <View style={styles.section}>
-          <Card style={styles.dangerCard}>
-            <Text style={styles.dangerBody}>
-              Takes {business.name} off the directory for good, along with any
-              reviews people have written about it. Nobody else can take it over,
-              and it cannot be brought back.
+          <Card style={styles.manageCard}>
+            <Text style={styles.manageBody}>
+              {hidden
+                ? `${business.name} is off the directory, so only you can see it. Everything is still here, including your reviews.`
+                : `Takes ${business.name} off the directory for now. Your reviews, photos and hours all stay, and you can put it back whenever you like.`}
             </Text>
             <Field
-              label="Why are you removing it?"
+              label={hidden ? 'Anything to note?' : 'Why are you closing it?'}
               value={reason}
               onChangeText={setReason}
-              placeholder="Closed down, listed by mistake, something else"
+              placeholder={hidden ? 'Reopened, back to normal hours' : 'Closed for renovation, on holiday, something else'}
               multiline
-              hint="Optional. It helps us understand what is not working."
+              hint="Optional."
             />
             {removeError ? <Text style={styles.dangerError}>{removeError}</Text> : null}
             <Button
-              label="Remove this listing"
-              variant="danger"
+              label={hidden ? 'Put it back on the directory' : 'Take it off the directory'}
+              icon={hidden ? 'eye-outline' : 'eye-off-outline'}
+              variant="secondary"
               size="md"
-              loading={removing}
-              onPress={confirmRemove}
+              loading={listing}
+              onPress={() => void unlist(hidden)}
             />
+
+            {/*
+              * Below the fold and much quieter, because it is the rare one.
+              * A plain link rather than a red button: this is for a listing
+              * that should never have existed, not for one that is shut for
+              * the week, and the button above is what almost everybody wants.
+              */}
+            <Pressable
+              onPress={confirmDelete}
+              disabled={removing}
+              hitSlop={8}
+              accessibilityRole="button"
+              style={styles.deleteRow}
+            >
+              <Text style={styles.deleteLink}>
+                {removing ? 'Deleting…' : 'Or delete it permanently'}
+              </Text>
+            </Pressable>
+            <Text style={styles.deleteNote}>
+              Removes the listing and the reviews people wrote about it, for good.
+            </Text>
           </Card>
         </View>
       </ScrollView>
@@ -435,9 +473,17 @@ const useStyles = makeStyles((colors, tones) => ({
   },
   iconButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
 
-  dangerCard: { gap: spacing.md },
-  dangerBody: { ...typography.meta, color: colors.textSecondary },
+  manageCard: { gap: spacing.md },
+  manageBody: { ...typography.meta, color: colors.textSecondary },
   dangerError: { ...typography.meta, color: colors.danger },
+  deleteRow: { alignItems: 'center', paddingTop: spacing.sm },
+  deleteLink: { ...typography.metaStrong, color: colors.danger },
+  deleteNote: {
+    ...typography.caption,
+    color: colors.textTertiary,
+    textAlign: 'center',
+    marginTop: -spacing.xs,
+  },
   headerTitle: { ...typography.cardTitle, color: colors.textPrimary, flex: 1, textAlign: 'center' },
 
   titleBlock: { paddingHorizontal: spacing.screen, paddingBottom: spacing.xl, gap: spacing.md },

@@ -40,7 +40,7 @@ import { AMENITY_OPTIONS } from '../../data/amenities';
 import { CATEGORIES, CATEGORY_TONES, categoryOf } from '../../data/categories';
 import type { CategoryId, WeekHours } from '../../data/types';
 import { DAY_NAMES, formatDayRange } from '../../lib/hours';
-import { capturePin, describePin, type Pin } from '../../lib/pinLocation';
+import { capturePin, describePin, warnAboutPin, type Pin } from '../../lib/pinLocation';
 import { useStore } from '../../lib/store';
 import { radii, spacing, typography } from '../../theme/tokens';
 import { makeStyles, useTheme } from '../../theme/ThemeProvider';
@@ -82,6 +82,7 @@ export default function ClaimScreen() {
   const [pin, setPin] = useState<Pin | null>(null);
   const [pinning, setPinning] = useState(false);
   const [pinError, setPinError] = useState<string | null>(null);
+  const [pinWarning, setPinWarning] = useState<string | null>(null);
 
   const priceError =
     Number(priceTo) > 0 && Number(priceFrom) > Number(priceTo)
@@ -113,6 +114,7 @@ export default function ClaimScreen() {
   const dropPin = async () => {
     setPinning(true);
     setPinError(null);
+    setPinWarning(null);
     const result = await capturePin();
     setPinning(false);
 
@@ -121,8 +123,20 @@ export default function ClaimScreen() {
       return;
     }
     setPin(result.pin);
-    // The area is usually the thing they were about to type anyway.
+    /*
+     * Both fields, from the one lookup. Only the area used to be filled, and
+     * it was filled from whichever administrative name the provider happened
+     * to return — which for a shop on a named road was the sub-county, an
+     * area you can drive across for half an hour.
+     *
+     * Neither overwrites something already typed. Somebody who wrote their
+     * own address knows it better than the geocoder does.
+     */
+    if (!address.trim() && result.pin.address) setAddress(result.pin.address);
     if (!neighbourhood.trim() && result.pin.area) setNeighbourhood(result.pin.area);
+
+    // Saved either way. A loose fix is worth saying out loud, not refusing.
+    setPinWarning(warnAboutPin(result.pin));
   };
 
   const toggleAmenity = (amenity: string) =>
@@ -320,6 +334,7 @@ export default function ClaimScreen() {
             </Pressable>
 
             {pinError ? <Text style={styles.failure}>{pinError}</Text> : null}
+            {pinWarning ? <Text style={styles.caution}>{pinWarning}</Text> : null}
 
             <Field
               label="Street address"
@@ -603,6 +618,8 @@ const useStyles = makeStyles((colors, tones) => ({
 
   note: { ...typography.meta, color: colors.textSecondary },
   failure: { ...typography.meta, color: colors.danger },
+  /* A loose fix is a caution, not a refusal: the pin was still saved. */
+  caution: { ...typography.meta, color: colors.textSecondary },
 
   footer: {
     position: 'absolute',

@@ -11,8 +11,8 @@
  */
 import * as Location from 'expo-location';
 
-import { DEFAULT_AREA, DEFAULT_CITY } from '../data/location';
-import { describePlace } from './useOrigin';
+import { DEFAULT_CITY } from '../data/location';
+import { accuracyNote, describeAddress } from './place';
 
 export type Pin = {
   lat: number;
@@ -21,6 +21,8 @@ export type Pin = {
   accuracyM?: number;
   /** "Westlands, Nairobi", for filling in the area field. */
   area?: string;
+  /** "12 Othaya Road", for filling in the address field. */
+  address?: string;
 };
 
 export type PinResult =
@@ -81,13 +83,21 @@ export async function capturePin(): Promise<PinResult> {
         : undefined,
   };
 
-  // Naming the place is a nicety. Failing to name it must not lose the fix.
+  /*
+   * Naming the place is a nicety. Failing to name it must not lose the fix.
+   *
+   * Both fields come from one lookup: the street goes in the address and the
+   * neighbourhood goes in the area. Filling only the area is what left people
+   * with a sub-county in a field meant to say which road they are on.
+   */
   try {
     const [place] = await Location.reverseGeocodeAsync({
       latitude: pin.lat,
       longitude: pin.lng,
     });
-    pin.area = describePlace(place, DEFAULT_CITY, DEFAULT_AREA).area;
+    const described = describeAddress(place, DEFAULT_CITY);
+    pin.address = described.address || undefined;
+    pin.area = described.area || undefined;
   } catch {
     // Keep the coordinates.
   }
@@ -99,4 +109,15 @@ export async function capturePin(): Promise<PinResult> {
 export function describePin(pin: Pin): string {
   if (pin.accuracyM === undefined) return 'Pinned to where you are now';
   return `Pinned to where you are now, accurate to about ${pin.accuracyM} m`;
+}
+
+/**
+ * A warning about a fix too vague to send anybody to, or null.
+ *
+ * Not an error: the pin is still saved. A person standing outside their own
+ * shop knows the address better than the satellite does, so the useful thing
+ * is to say the fix is loose and let them correct the text.
+ */
+export function warnAboutPin(pin: Pin): string | null {
+  return accuracyNote(pin.accuracyM);
 }

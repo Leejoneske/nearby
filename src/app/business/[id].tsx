@@ -315,7 +315,7 @@ export default function BusinessScreen() {
               <Pressable
                 onPress={() => {
                   if (business.dbId) recordEvent(business.dbId, 'directions');
-                  openDirections(business.lat, business.lng, business.name);
+                  void openDirections(business.lat, business.lng, business.name);
                 }}
                 hitSlop={8}
                 accessibilityRole="button"
