@@ -239,6 +239,86 @@ and merges it into the copy already in memory.
 This is worth remembering when adding a field: if it is expensive per row, it
 belongs on the detail fetch, not the list.
 
+## Two ways to say a price is one too many
+
+Owners are asked for a range in shillings, because that is a real number they
+know about their own business. `price_level`, the one to four the filter and
+the `$` signs read, is derived from it by a trigger. Nothing ever set it
+before, so every listing kept the default of 2 no matter what its owner typed
+and the price filter answered with the wrong places.
+
+An empty range leaves the level alone rather than reading as "cheap": not
+knowing what somewhere costs is not the same as it being free.
+
+## Uploads read a file as a file
+
+`fetch(uri).arrayBuffer()` is how you read a picked image in a browser and
+not how you read one on a phone. React Native's `fetch` accepts a `file:`
+URI and then fails to produce an `arrayBuffer` for it, so the same code that
+works in the web preview uploads an empty object from a device — with no
+error anywhere, because every call succeeded. `readBytes` in `src/lib/api.ts`
+picks by URI scheme: `fetch` for `blob:` and `data:`, `expo-file-system` for
+everything else.
+
+## The nearby page is not the whole directory
+
+`businesses_nearby()` answers one question — what is close — and the store
+keeps its answer as `businesses`. Two lists are not about proximity at all:
+the places somebody saved, and the listings they own. Both used to be drawn
+by filtering that same page.
+
+That works until the directory outgrows one page of it. Past a hundred
+listings inside the radius, a place saved on a trip to Mombasa is not in the
+page any more, and the Saved tab drops it without a word. Nothing is broken
+in a way a test would catch, because the bug needs data volume to appear.
+
+So both are fetched by name — `fetchBusinessesBySlugs` and `fetchOwned` — and
+merged into the same list, with the nearby copy winning on conflict because
+it is the one that knows the distance. Any future list that is not "near me"
+needs the same treatment.
+
+## A picture belongs to the person, not to the review
+
+`reviews.author_name` is copied on to the row at write time, so a review
+reads as it did when it was written. The picture is not: it is read from the
+author's profile every time the reviews are fetched, so changing it changes
+every review at once, which is what "sync it everywhere" has to mean.
+
+Getting it there took a function. `profiles` is readable only by the person
+it belongs to — the row carries an email address and a phone number — so
+joining it from `reviews` returned a picture on your own reviews and on
+nobody else's. `review_author_avatars(uuid[])` hands back ids and avatar URLs
+and nothing else. Do not widen the policy on `profiles` to fix a display
+problem; add to that function, or write another one as narrow.
+
+## What happens under load, and why there is no Redis
+
+Asked and measured rather than assumed, so it can be re-checked rather than
+re-argued.
+
+The read path is one `businesses_nearby()` per app open, one detail fetch per
+listing opened, and one row into `business_events` per view. The nearby query
+is a GIST index lookup with a `limit`, search runs client-side over the page
+already in memory so typing costs nothing, and the detail fetch is a primary
+key lookup plus two indexed reads. None of that is where a directory this
+size falls over.
+
+`business_events` is. It is the only table that grows with traffic rather
+than with the directory: a row per view, per call, per tap on Directions,
+kept for ever, and every insight query reading across all of it to answer a
+question about this week. `prune_business_events()` runs nightly on pg_cron
+and keeps ninety days, which is further back than anything on the dashboard
+looks.
+
+Redis was considered and is not warranted. It would sit in front of reads
+that are already index lookups against a table of a few thousand rows, and
+buy a cache invalidation problem: a listing changes when its owner edits it,
+when a review lands, when we approve or suspend it, and a stale directory
+entry is worse than a slightly slower fresh one. The order to reach for
+things in, if the numbers ever say so: raise the Supabase instance size,
+then cache the nearby response at the edge with a short TTL, then Redis —
+and only with a measurement in hand saying which one is the problem.
+
 ## Numbers must be measured
 
 The owner dashboard once read a `insights` field that nothing ever wrote, so
@@ -416,6 +496,18 @@ collection that a privacy policy has to disclose.
 When you change what the app collects, who can see it, or what we do about a
 report, that file changes in the same commit. A policy describing an older
 version of the product is worse than none, because somebody relied on it.
+
+## The schema lives in Supabase, not in this repository
+
+Every migration is applied to the hosted project and recorded there, in
+`supabase_migrations.schema_migrations`. There is no `supabase/migrations`
+directory here, so a clone of this repository is not enough to stand the
+database up from nothing — you need the project as well.
+
+That is worth knowing before it matters rather than after. Naming stays
+sequential and descriptive (`019_audit_indexes_policies_and_grants`) so the
+list reads as a history, and each migration carries its reasoning in comments
+for the same reason the code does.
 
 ## Tests
 

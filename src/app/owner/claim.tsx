@@ -1,10 +1,11 @@
 /**
  * Add a listing, or claim one that is already here.
  *
- * Two modes in one screen. With no `business` param it is the three step
+ * Two modes in one screen. With no `business` param it is the four step
  * form: asking for everything at once is how a small-business owner on a
  * phone gives up halfway, and each step validates only its own fields so
- * Continue is never a mystery. With `?business=<id>` it is a single confirm
+ * Continue is never a mystery. The last step is optional throughout — a
+ * listing is useful without opening hours and useless without a name. With `?business=<id>` it is a single confirm
  * step that takes over an existing listing instead of creating a second copy
  * of it — which is what happened when this screen only knew how to create.
  *
@@ -22,6 +23,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from 'react-native';
@@ -29,19 +31,27 @@ import { useScreenInsets } from '../../lib/insets';
 
 import { Button } from '../../components/Button';
 import { Field } from '../../components/Field';
+import { PhotoUploader } from '../../components/PhotoUploader';
 import { Card } from '../../components/primitives';
+import { AMENITY_OPTIONS } from '../../data/amenities';
 import { CATEGORIES, CATEGORY_TONES, categoryOf } from '../../data/categories';
-import type { CategoryId } from '../../data/types';
+import type { CategoryId, WeekHours } from '../../data/types';
+import { DAY_NAMES, formatDayRange } from '../../lib/hours';
 import { useStore } from '../../lib/store';
 import { colors, radii, spacing, tones, typography } from '../../theme/tokens';
 
-const STEPS = ['Business', 'Location', 'Contact'] as const;
+const STEPS = ['Business', 'Location', 'Contact', 'Details'] as const;
+
+/** A week with nothing set, which is what a new listing starts from. */
+function emptyWeek(): WeekHours {
+  return [null, null, null, null, null, null, null];
+}
 
 export default function ClaimScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
   const { business: claimId } = useLocalSearchParams<{ business?: string }>();
-  const { addBusiness, claimBusiness, getBusiness, session } = useStore();
+  const { addBusiness, claimBusiness, getBusiness, session, userId } = useStore();
 
   const claiming = getBusiness(claimId ?? '');
 
@@ -55,15 +65,42 @@ export default function ClaimScreen() {
   const [name, setName] = useState('');
   const [categoryId, setCategoryId] = useState<CategoryId | null>(null);
   const [tagline, setTagline] = useState('');
+  const [description, setDescription] = useState('');
   const [address, setAddress] = useState('');
   const [neighbourhood, setNeighbourhood] = useState('');
   const [phone, setPhone] = useState('');
+  const [website, setWebsite] = useState('');
+  const [priceFrom, setPriceFrom] = useState('');
+  const [priceTo, setPriceTo] = useState('');
+  const [hours, setHours] = useState<WeekHours>(emptyWeek());
+  const [amenities, setAmenities] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<string[]>([]);
+
+  const priceError =
+    Number(priceTo) > 0 && Number(priceFrom) > Number(priceTo)
+      ? 'The lower figure has to be the smaller one'
+      : undefined;
 
   const stepValid = [
     name.trim().length > 1 && categoryId !== null,
     address.trim().length > 2 && neighbourhood.trim().length > 1,
     phone.trim().length >= 9,
+    !priceError,
   ][step];
+
+  const toggleDay = (index: number) => {
+    setHours((prev) => {
+      const next = [...prev] as WeekHours;
+      // Reopening a closed day lands on a sane default rather than midnight.
+      next[index] = prev[index] ? null : { open: 9 * 60, close: 18 * 60 };
+      return next;
+    });
+  };
+
+  const toggleAmenity = (amenity: string) =>
+    setAmenities((prev) =>
+      prev.includes(amenity) ? prev.filter((a) => a !== amenity) : [...prev, amenity],
+    );
 
   const signedOut = session.status === 'signedOut';
 
@@ -86,9 +123,16 @@ export default function ClaimScreen() {
           name: name.trim(),
           categoryId: categoryId ?? 'services',
           tagline: tagline.trim() || categoryOf(categoryId ?? 'services').label,
+          description: description.trim(),
           address: address.trim(),
           neighbourhood: neighbourhood.trim(),
           phone: phone.trim(),
+          website: website.trim(),
+          priceFrom: Number(priceFrom) || 0,
+          priceTo: Number(priceTo) || 0,
+          hours: hours.some(Boolean) ? hours : undefined,
+          amenities,
+          photos,
         });
         setDoneName(name.trim());
       }
@@ -112,11 +156,12 @@ export default function ClaimScreen() {
           <Ionicons name="checkmark" size={40} color={colors.textOnAccent} />
         </View>
         <Text style={styles.doneTitle}>
-          {claiming ? `${doneName} is yours to manage` : `${doneName} is listed`}
+          {claiming ? `${doneName} is yours to manage` : `${doneName} has been sent for review`}
         </Text>
         <Text style={styles.doneBody}>
-          It is live in search and on the map now. We will be in touch to confirm the
-          business is yours. Until then it shows as unverified.
+          {claiming
+            ? 'We will be in touch to confirm the business is yours. Until then it shows as unverified.'
+            : 'We read every listing before it goes live, which usually takes a day. You will get a notification either way, and you can keep editing it in the meantime.'}
         </Text>
         <Card style={styles.doneCard}>
           <Text style={styles.doneNext}>What to do next</Text>
@@ -253,6 +298,14 @@ export default function ClaimScreen() {
               placeholder="e.g. Specialty coffee roaster"
               hint="Optional. One line under your name in search results."
             />
+            <Field
+              label="About"
+              value={description}
+              onChangeText={setDescription}
+              placeholder="What should somebody know before they visit?"
+              multiline
+              hint="Optional. Shown on your listing page."
+            />
           </View>
         ) : null}
 
@@ -291,10 +344,95 @@ export default function ClaimScreen() {
               keyboardType="phone-pad"
               placeholder="+254 7.. ... ..."
             />
+            <Field
+              label="Website"
+              value={website}
+              onChangeText={setWebsite}
+              keyboardType="url"
+              prefix="https://"
+              placeholder="yourbusiness.co.ke"
+              hint="Optional."
+            />
+          </View>
+        ) : null}
+
+        {step === 3 ? (
+          <View style={styles.group}>
+            <Text style={styles.stepTitle}>Anything else you want to show</Text>
+            <Text style={styles.stepBody}>
+              All of this is optional, and you can add it later from your dashboard.
+            </Text>
+
+            <Text style={styles.groupTitle}>Photos</Text>
+            <PhotoUploader photos={photos} onChange={setPhotos} userId={userId} />
+
+            <Text style={styles.groupTitle}>Typical spend</Text>
+            <View style={styles.priceRow}>
+              <View style={styles.priceField}>
+                <Field
+                  label="From (KSh)"
+                  value={priceFrom}
+                  onChangeText={setPriceFrom}
+                  keyboardType="numeric"
+                  placeholder="300"
+                />
+              </View>
+              <View style={styles.priceField}>
+                <Field
+                  label="To (KSh)"
+                  value={priceTo}
+                  onChangeText={setPriceTo}
+                  keyboardType="numeric"
+                  placeholder="900"
+                  error={priceError}
+                />
+              </View>
+            </View>
+
+            <Text style={styles.groupTitle}>Opening hours</Text>
+            <Card style={styles.hoursCard}>
+              {DAY_NAMES.map((day, index) => (
+                <View key={day} style={[styles.hourRow, index < 6 && styles.hourDivider]}>
+                  <Text style={styles.hourDay}>{day}</Text>
+                  <Text style={styles.hourValue}>{formatDayRange(hours[index])}</Text>
+                  <Switch
+                    value={!!hours[index]}
+                    onValueChange={() => toggleDay(index)}
+                    trackColor={{ true: colors.accent, false: colors.borderStrong }}
+                    thumbColor={colors.surface}
+                    accessibilityLabel={`${day} open`}
+                  />
+                </View>
+              ))}
+            </Card>
+
+            <Text style={styles.groupTitle}>Amenities</Text>
+            <View style={styles.amenityRow}>
+              {AMENITY_OPTIONS.map((amenity) => {
+                const selected = amenities.includes(amenity);
+                return (
+                  <Pressable
+                    key={amenity}
+                    onPress={() => toggleAmenity(amenity)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    style={[styles.amenityChip, selected && styles.amenityChipSelected]}
+                  >
+                    {selected ? (
+                      <Ionicons name="checkmark" size={13} color={colors.textOnAccent} />
+                    ) : null}
+                    <Text style={[styles.amenityLabel, selected && styles.amenityLabelSelected]}>
+                      {amenity}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
             <Text style={styles.claimNote}>
               {signedOut
                 ? 'Sign in on the next step so the listing is saved to your account.'
-                : 'Your listing goes live straight away, and shows as unverified until we confirm it.'}
+                : 'We read every listing before it goes live, which usually takes a day.'}
             </Text>
             {failure ? <Text style={styles.failure}>{failure}</Text> : null}
           </View>
@@ -394,8 +532,34 @@ const styles = StyleSheet.create({
   progressLabelActive: { color: colors.textPrimary, fontWeight: '700' },
 
   group: { gap: spacing.lg },
+  groupTitle: { ...typography.sectionTitle, color: colors.textPrimary, marginTop: spacing.sm },
   stepTitle: { ...typography.title, color: colors.textPrimary },
   stepBody: { ...typography.body, color: colors.textSecondary, marginTop: -spacing.sm },
+
+  priceRow: { flexDirection: 'row', gap: spacing.md },
+  priceField: { flex: 1 },
+
+  hoursCard: { paddingVertical: spacing.xs },
+  hourRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
+  hourDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  hourDay: { ...typography.bodyStrong, color: colors.textPrimary, width: 44 },
+  hourValue: { ...typography.meta, color: colors.textSecondary, flex: 1 },
+
+  amenityRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  amenityChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  amenityChipSelected: { backgroundColor: colors.accent, borderColor: colors.accent },
+  amenityLabel: { ...typography.meta, color: colors.textSecondary },
+  amenityLabelSelected: { color: colors.textOnAccent, fontWeight: '600' },
 
   claimBody: { flex: 1, paddingHorizontal: spacing.screen, gap: spacing.md },
   claimNote: { ...typography.meta, color: colors.textSecondary },

@@ -57,6 +57,12 @@ export function Overview({ onGo }: { onGo: (page: 'reports' | 'listings') => voi
               note={`${counts.listings_new_week} added this week`}
             />
             <Stat
+              label="Waiting for review"
+              value={counts.listings_pending}
+              note={counts.listings_pending > 0 ? 'Submitted, not published' : 'Nothing waiting'}
+              warn={counts.listings_pending > 0}
+            />
+            <Stat
               label="Waiting to verify"
               value={counts.listings_unverified}
               note={counts.listings_unverified > 0 ? 'Needs a look' : 'All caught up'}
@@ -89,6 +95,22 @@ export function Overview({ onGo }: { onGo: (page: 'reports' | 'listings') => voi
               warn={counts.reports_open > 0}
             />
           </div>
+
+          {counts.listings_pending > 0 ? (
+            <Banner kind="info">
+              {counts.listings_pending} listing{counts.listings_pending === 1 ? '' : 's'} waiting
+              to be read.{' '}
+              <a
+                href="#listings"
+                onClick={(e) => {
+                  e.preventDefault();
+                  onGo('listings');
+                }}
+              >
+                Open the queue
+              </a>
+            </Banner>
+          ) : null}
 
           {counts.reports_open > 0 ? (
             <Banner kind="info">

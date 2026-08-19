@@ -12,6 +12,7 @@ export type ReportState = 'open' | 'actioned' | 'dismissed';
 
 export type Overview = {
   listings_live: number;
+  listings_pending: number;
   listings_suspended: number;
   listings_unverified: number;
   listings_unclaimed: number;
@@ -28,9 +29,15 @@ export type AdminBusiness = {
   slug: string;
   name: string;
   category: string;
+  tagline: string;
+  description: string;
   neighbourhood: string;
   address: string;
   phone: string | null;
+  website: string | null;
+  price_from: number;
+  price_to: number;
+  photos: string[];
   status: BusinessStatus;
   verified: boolean;
   owner_id: string | null;
@@ -38,6 +45,21 @@ export type AdminBusiness = {
   rating: number | string;
   review_count: number;
   created_at: string;
+};
+
+/** The columns `admin_update_business` will take. */
+export type BusinessEdit = {
+  name: string;
+  category: string;
+  tagline: string;
+  description: string;
+  address: string;
+  neighbourhood: string;
+  phone: string;
+  website: string;
+  price_from: number;
+  price_to: number;
+  photos: string[];
 };
 
 export type AdminReview = {
@@ -104,7 +126,8 @@ export async function fetchBusinesses(options: {
   let q = supabase
     .from('businesses')
     .select(
-      'id, slug, name, category, neighbourhood, address, phone, status, verified, ' +
+      'id, slug, name, category, tagline, description, neighbourhood, address, phone, ' +
+        'website, price_from, price_to, photos, status, verified, ' +
         'owner_id, claimed_at, rating, review_count, created_at',
     )
     .order('created_at', { ascending: false })
@@ -194,6 +217,53 @@ export async function setBusinessStatus(id: string, status: BusinessStatus, note
     in_business_id: id,
     in_status: status,
     in_note: note,
+  });
+  if (error) throw error;
+}
+
+/**
+ * Approves a listing somebody submitted, or turns it down.
+ *
+ * The note is not paperwork. A decline sends it to the owner as the reason,
+ * and a decline with no reason is one they cannot act on.
+ */
+export async function reviewListing(id: string, approve: boolean, note = '') {
+  const { error } = await supabase.rpc('admin_review_listing', {
+    in_business_id: id,
+    in_approve: approve,
+    in_note: note,
+  });
+  if (error) throw error;
+}
+
+export async function updateBusiness(id: string, patch: BusinessEdit) {
+  const { error } = await supabase.rpc('admin_update_business', {
+    in_business_id: id,
+    in_name: patch.name,
+    in_category: patch.category,
+    in_tagline: patch.tagline,
+    in_description: patch.description,
+    in_address: patch.address,
+    in_neighbourhood: patch.neighbourhood,
+    in_phone: patch.phone,
+    in_website: patch.website || null,
+    in_price_from: patch.price_from,
+    in_price_to: patch.price_to,
+    in_photos: patch.photos,
+  });
+  if (error) throw error;
+}
+
+/**
+ * Removes a listing for good, along with its reviews and its history.
+ *
+ * Suspending is almost always the right answer instead. This exists for the
+ * cases where the row should never have been there: a duplicate, or a test.
+ */
+export async function deleteBusiness(id: string, reason = '') {
+  const { error } = await supabase.rpc('admin_delete_business', {
+    in_business_id: id,
+    in_reason: reason,
   });
   if (error) throw error;
 }

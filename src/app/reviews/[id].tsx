@@ -147,7 +147,7 @@ export default function AllReviewsScreen() {
         renderItem={({ item }) => (
           <Card style={styles.review}>
             <View style={styles.reviewHead}>
-              <Avatar initials={item.authorInitials} size={38} />
+              <Avatar initials={item.authorInitials} avatar={item.authorAvatar} size={38} />
               <View style={styles.reviewMeta}>
                 <Text style={styles.author}>{item.authorName}</Text>
                 <View style={styles.subRow}>

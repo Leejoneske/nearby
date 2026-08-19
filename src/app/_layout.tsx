@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { hasSeenIntro } from '../lib/firstRun';
+import { NameGate } from '../components/NameGate';
 import { UpdateGate } from '../components/UpdateGate';
 import { StoreProvider } from '../lib/store';
 import { colors } from '../theme/tokens';
@@ -59,6 +60,9 @@ export default function RootLayout() {
             <Stack.Screen name="intro" options={{ animation: 'fade' }} />
             <Stack.Screen name="(auth)/sign-in" />
             <Stack.Screen name="(auth)/verify" />
+            {/* No gesture back: leaving without a name lands straight back
+                here, which reads as the app refusing to move on. */}
+            <Stack.Screen name="(auth)/welcome" options={{ gestureEnabled: false }} />
             <Stack.Screen name="search" />
             <Stack.Screen name="business/[id]" />
             <Stack.Screen name="reviews/[id]" />
@@ -76,7 +80,8 @@ export default function RootLayout() {
               options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
             />
           </Stack>
-          {/* Sits over everything, so a prompt is not tied to one screen. */}
+          {/* These sit over everything, so a prompt is not tied to one screen. */}
+          <NameGate />
           <UpdateGate />
         </StoreProvider>
       </SafeAreaProvider>

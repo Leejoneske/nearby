@@ -2,7 +2,7 @@
  * Sign in with an email address.
  *
  * Email rather than phone because it works anywhere without an SMS provider
- * in every country the app reaches, and costs nothing to send. A six digit
+ * in every country the app reaches, and costs nothing to send. A short
  * code rather than a magic link: a link has to survive being opened in the
  * wrong browser and handed back to the app, and a code does not.
  */
@@ -21,7 +21,7 @@ import {
 
 import { Button } from '../../components/Button';
 import { Field } from '../../components/Field';
-import { isPlausibleEmail } from '../../lib/identity';
+import { isDisposableEmail, isPlausibleEmail } from '../../lib/identity';
 import { useScreenInsets } from '../../lib/insets';
 import { supabase } from '../../lib/supabase';
 import { colors, radii, spacing, typography } from '../../theme/tokens';
@@ -35,13 +35,24 @@ export default function SignInScreen() {
   const [failure, setFailure] = useState<string | null>(null);
 
   const valid = isPlausibleEmail(email);
+  /*
+   * A throwaway address is refused here as well as in the database. The
+   * database is the enforcement, since anything can call the API; this is so
+   * somebody hears about it before they wait for a code that they can never
+   * be reached at again.
+   */
+  const disposable = valid && isDisposableEmail(email);
   const error =
-    failure ?? (touched && !valid ? 'Enter an email address we can reach' : undefined);
+    failure ??
+    (touched && !valid ? 'Enter an email address we can reach' : undefined) ??
+    (touched && disposable
+      ? 'Use an address you will still have later. Temporary inboxes cannot be recovered.'
+      : undefined);
 
   const onContinue = async () => {
     setTouched(true);
     setFailure(null);
-    if (!valid) return;
+    if (!valid || disposable) return;
 
     setSending(true);
     const { error: sendError } = await supabase.auth.signInWithOtp({
@@ -99,7 +110,7 @@ export default function SignInScreen() {
             keyboardType="email-address"
             placeholder="you@example.com"
             error={error}
-            hint="We will email you a six digit code. No password to remember."
+            hint="We will email you a code to sign in with. No password to remember."
           />
           <Button label="Continue" onPress={onContinue} loading={sending} />
         </View>

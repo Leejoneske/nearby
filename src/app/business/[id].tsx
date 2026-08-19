@@ -320,7 +320,7 @@ export default function BusinessScreen() {
             {business.reviews.map((review) => (
               <Card key={review.id} style={styles.reviewCard}>
                 <View style={styles.reviewHeader}>
-                  <Avatar initials={review.authorInitials} size={38} />
+                  <Avatar initials={review.authorInitials} avatar={review.authorAvatar} size={38} />
                   <View style={styles.reviewMeta}>
                     <Text style={styles.reviewAuthor}>{review.authorName}</Text>
                     <View style={styles.reviewSubRow}>

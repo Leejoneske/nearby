@@ -6,6 +6,9 @@
  * rows into the domain types in `src/data/types.ts` and back, so the shape
  * the UI works with does not change just because the storage did.
  */
+import { File } from 'expo-file-system';
+import { Platform } from 'react-native';
+
 import type {
   AppNotification,
   Business,
@@ -69,11 +72,18 @@ function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-export function toReview(row: ReviewRow): Review {
+/**
+ * @param avatars the author's picture by profile id, from
+ * `review_author_avatars`. Read at fetch time rather than copied on to the
+ * review, so changing a picture changes every review at once. The name is
+ * still copied, because a review should read as it did when it was written.
+ */
+export function toReview(row: ReviewRow, avatars: Map<string, string> = new Map()): Review {
   return {
     id: row.id,
     authorName: row.author_name,
     authorInitials: initials(row.author_name),
+    authorAvatar: (row.author_id ? avatars.get(row.author_id) : undefined) ?? undefined,
     rating: row.rating,
     date: row.created_at.slice(0, 10),
     body: row.body,
@@ -198,6 +208,52 @@ export async function fetchBusiness(
   return business;
 }
 
+/**
+ * Listings by slug, wherever they are.
+ *
+ * The rest of the app works off one page of nearby results, which is right
+ * for a directory and wrong for the two lists that are not about proximity.
+ * Somewhere past a hundred listings inside the radius, a place you saved in
+ * another town stops being in that page, and the Saved tab quietly drops it.
+ * This fetches those rows by name instead of hoping they were nearby.
+ */
+export async function fetchBusinessesBySlugs(
+  slugs: string[],
+  origin?: Origin,
+  viewerId?: string | null,
+): Promise<Business[]> {
+  if (slugs.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('businesses')
+    .select('*, location')
+    .in('slug', slugs);
+  if (error) throw error;
+  return (data ?? []).map((row) => withDistance(row as BusinessRow, origin, viewerId));
+}
+
+/** Every listing an account owns, however far away it is. */
+export async function fetchOwned(
+  profileId: string,
+  origin?: Origin,
+): Promise<Business[]> {
+  const { data, error } = await supabase
+    .from('businesses')
+    .select('*, location')
+    .eq('owner_id', profileId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((row) => withDistance(row as BusinessRow, origin, profileId));
+}
+
+/** A plain select returns the geography column, so distance is worked out here. */
+function withDistance(row: BusinessRow, origin?: Origin, viewerId?: string | null): Business {
+  const coords = parsePoint(row.location);
+  const business = toBusiness({ ...row, lat: coords?.lat, lng: coords?.lng }, { viewerId });
+  if (origin && coords) business.distanceM = Math.round(haversine(origin, coords));
+  return business;
+}
+
 export async function fetchReviews(businessId: string): Promise<Review[]> {
   const { data, error } = await supabase
     .from('reviews')
@@ -205,7 +261,35 @@ export async function fetchReviews(businessId: string): Promise<Review[]> {
     .eq('business_id', businessId)
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return (data as ReviewRow[]).map(toReview);
+
+  const rows = data as ReviewRow[];
+  const avatars = await fetchReviewAvatars(rows);
+  return rows.map((row) => toReview(row, avatars));
+}
+
+/**
+ * The authors' pictures for a page of reviews.
+ *
+ * A second call rather than a join, because a profile row is readable only by
+ * the person it belongs to — it holds their email address and phone number —
+ * so joining it returned a picture on your own reviews and on nobody else's.
+ * The function hands back ids and avatars alone.
+ */
+export async function fetchReviewAvatars(rows: { author_id: string | null }[]): Promise<Map<string, string>> {
+  const ids = Array.from(new Set(rows.map((r) => r.author_id).filter((v): v is string => !!v)));
+  if (ids.length === 0) return new Map();
+
+  const { data, error } = await supabase.rpc('review_author_avatars', { in_ids: ids });
+  if (error) {
+    // A missing picture is not worth failing a page of reviews over.
+    console.warn('[api] reading review pictures failed', error);
+    return new Map();
+  }
+  return new Map(
+    ((data ?? []) as { id: string; avatar_url: string | null }[])
+      .filter((row) => !!row.avatar_url)
+      .map((row) => [row.id, row.avatar_url as string]),
+  );
 }
 
 export async function fetchSavedIds(profileId: string): Promise<string[]> {
@@ -287,6 +371,13 @@ export async function createBusinessRemote(input: {
   phone: string;
   lat: number;
   lng: number;
+  description?: string;
+  website?: string;
+  priceFrom?: number;
+  priceTo?: number;
+  hours?: WeekHours;
+  amenities?: string[];
+  photos?: string[];
 }): Promise<string> {
   const { data, error } = await supabase.rpc('create_business', {
     in_name: input.name,
@@ -297,6 +388,13 @@ export async function createBusinessRemote(input: {
     in_phone: input.phone,
     in_lat: input.lat,
     in_lng: input.lng,
+    in_description: input.description ?? '',
+    in_website: input.website || null,
+    in_price_from: input.priceFrom ?? 0,
+    in_price_to: input.priceTo ?? 0,
+    in_hours: input.hours ?? [null, null, null, null, null, null, null],
+    in_amenities: input.amenities ?? [],
+    in_photos: input.photos ?? [],
   });
   if (error) throw error;
   return data as string;
@@ -402,6 +500,105 @@ export async function fetchNotifications(profileId: string): Promise<AppNotifica
 
 export async function markNotificationReadRemote(id: string) {
   const { error } = await supabase.from('notifications').update({ read: true }).eq('id', id);
+  if (error) throw error;
+}
+
+
+/* ------------------------------------------------------------ profiles --- */
+
+export type ProfileRow = {
+  name: string;
+  area: string;
+  avatar_url: string | null;
+  avatar_kind: 'preset' | 'upload' | null;
+};
+
+/**
+ * The signed-in person's own row.
+ *
+ * The store never read this, which is why somebody with an account still saw
+ * "Guest": the name existed in the database and nothing ever fetched it.
+ */
+export async function fetchProfile(id: string): Promise<ProfileRow | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('name, area, avatar_url, avatar_kind')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as ProfileRow) ?? null;
+}
+
+/**
+ * Saves the parts of a profile a person edits.
+ *
+ * `area` is NOT NULL in the database, so an undefined here would be sent as
+ * null and the whole update refused — which is what made saving a name look
+ * like it worked and change nothing. Only keys with a value are sent.
+ */
+export async function updateProfileRemote(
+  id: string,
+  patch: { name?: string; area?: string; avatarUrl?: string | null; avatarKind?: 'preset' | 'upload' | null },
+): Promise<void> {
+  const row: Record<string, unknown> = {};
+  if (patch.name !== undefined) row.name = patch.name;
+  if (patch.area !== undefined) row.area = patch.area;
+  if (patch.avatarUrl !== undefined) row.avatar_url = patch.avatarUrl;
+  if (patch.avatarKind !== undefined) row.avatar_kind = patch.avatarKind;
+  if (Object.keys(row).length === 0) return;
+
+  const { error } = await supabase.from('profiles').update(row).eq('id', id);
+  if (error) throw error;
+}
+
+/* ------------------------------------------------------------- uploads --- */
+
+/**
+ * Puts an image in a bucket and returns the URL to store.
+ *
+ * The path always starts with the uploader's id, because that is what the
+ * storage policy checks. The bucket also caps the size and the type, so a
+ * file that got past the app's own check is still refused here.
+ *
+ * React Native's fetch can read a local file URI into a blob, which is the
+ * shortest honest route from a picker result to an upload.
+ */
+export async function uploadImage(
+  bucket: 'avatars' | 'business-photos',
+  path: string,
+  localUri: string,
+  contentType: string,
+): Promise<string> {
+  const { error } = await supabase.storage.from(bucket).upload(path, await readBytes(localUri), {
+    contentType,
+    upsert: false,
+  });
+  if (error) throw error;
+
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+  return data.publicUrl;
+}
+
+/**
+ * The bytes behind whatever the image picker handed back.
+ *
+ * Two paths because there are two kinds of URI. In the browser the picker
+ * gives a `blob:` or `data:` URI and `fetch` is the way to read it. On a
+ * phone it gives a `file:` URI, which React Native's `fetch` will happily
+ * accept and then fail to give an `arrayBuffer` for, so an upload written
+ * against the browser path silently produced an empty file. `expo-file-system`
+ * reads the file as a file.
+ */
+async function readBytes(uri: string): Promise<ArrayBuffer> {
+  if (Platform.OS === 'web' || uri.startsWith('data:') || uri.startsWith('blob:')) {
+    return (await fetch(uri)).arrayBuffer();
+  }
+  return new File(uri).arrayBuffer();
+}
+
+/** Updates the photos on a listing the caller owns. */
+export async function setBusinessPhotos(dbId: string, photos: string[]): Promise<void> {
+  const { error } = await supabase.from('businesses').update({ photos }).eq('id', dbId);
   if (error) throw error;
 }
 

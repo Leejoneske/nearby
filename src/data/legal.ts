@@ -31,7 +31,7 @@ export const LEGAL: Record<'privacy' | 'terms', LegalDoc> = {
       {
         heading: 'What we collect',
         paragraphs: [
-          'Your email address, because it is how you sign in. We send a six digit code to it each time, so there is no password to remember or to lose.',
+          'Your email address, because it is how you sign in. We send a code to it each time, so there is no password to remember or to lose.',
           'Anything you type in: your name, the reviews you write, and the details of any business you list.',
           'Your approximate location, but only while the app is open and only if you allow it. We use it to sort places by how close they are. We do not track you in the background, and refusing simply means distances are measured from the city instead.',
           'Which listings get opened, called or asked directions to. That is counted against the business rather than against you, so an owner sees how many people found them and never who.',
@@ -97,7 +97,7 @@ export const LEGAL: Record<'privacy' | 'terms', LegalDoc> = {
       {
         heading: 'Your account',
         paragraphs: [
-          'You sign in with an email address, and we send a six digit code to it. Keep that inbox to yourself, because anything done from your account is treated as done by you.',
+          'You sign in with an email address, and we send a code to it. Keep that inbox to yourself, because anything done from your account is treated as done by you.',
           'You can browse, search and read reviews without an account. Saving a place, writing a review, listing a business and reporting something all need one.',
           'You must be at least 13 years old to use Nearby.',
         ],

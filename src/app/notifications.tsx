@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import { EmptyState } from '../components/primitives';
 import type { AppNotification, NotificationKind } from '../data/types';
@@ -24,9 +24,28 @@ const KIND: Record<NotificationKind, { icon: string; tone: ToneName }> = {
 export default function NotificationsScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
-  const { notifications, unreadCount, markNotificationRead, markAllNotificationsRead } =
-    useStore();
+  const {
+    notifications,
+    unreadCount,
+    markNotificationRead,
+    markAllNotificationsRead,
+    refreshNotifications,
+    session,
+  } = useStore();
   const now = useMemo(() => new Date(), []);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // New rows arrive on their own through the live subscription. This is for
+  // the case where that connection dropped and nobody would otherwise know.
+  useEffect(() => {
+    void refreshNotifications();
+  }, [refreshNotifications]);
+
+  const pullToRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refreshNotifications();
+    setRefreshing(false);
+  }, [refreshNotifications]);
 
   const open = (item: AppNotification) => {
     markNotificationRead(item.id);
@@ -64,6 +83,13 @@ export default function NotificationsScreen() {
         data={notifications}
         keyExtractor={(n) => n.id}
         contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xxl }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void pullToRefresh()}
+            tintColor={colors.textTertiary}
+          />
+        }
         renderItem={({ item, index }) => (
           <Pressable
             onPress={() => open(item)}
@@ -111,7 +137,11 @@ export default function NotificationsScreen() {
             <EmptyState
               icon="notifications-outline"
               title="Nothing new"
-              body="Reviews, replies and offers from places you follow will show up here."
+              body={
+                session.status === 'signedIn'
+                  ? 'Reviews on your listings, replies to yours and news about a business you added will show up here.'
+                  : 'Sign in and we will keep you posted about the reviews you write and the businesses you add.'
+              }
             />
           </View>
         }

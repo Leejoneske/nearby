@@ -5,7 +5,12 @@
  * caught. An address the app wrongly rejects is a person who cannot sign in
  * at all, and there is no error message that makes that acceptable.
  */
-import { boxCount, isPlausibleEmail } from '../identity';
+import {
+  boxCount,
+  cleanDisplayName,
+  isDisposableEmail,
+  isPlausibleEmail,
+} from '../identity';
 import { describePlace } from '../useOrigin';
 
 describe('isPlausibleEmail', () => {
@@ -113,5 +118,67 @@ describe('boxCount', () => {
   it('stops at ten', () => {
     expect(boxCount(11)).toBe(10);
     expect(boxCount(99)).toBe(10);
+  });
+});
+
+describe('isDisposableEmail', () => {
+  it('spots the common throwaway providers', () => {
+    expect(isDisposableEmail('a@mailinator.com')).toBe(true);
+    expect(isDisposableEmail('A@YOPMAIL.COM')).toBe(true);
+    expect(isDisposableEmail('  a@10minutemail.com  ')).toBe(true);
+  });
+
+  it('lets ordinary providers through', () => {
+    expect(isDisposableEmail('a@gmail.com')).toBe(false);
+    expect(isDisposableEmail('a@outlook.com')).toBe(false);
+    expect(isDisposableEmail('a@mycompany.co.ke')).toBe(false);
+  });
+
+  it('does not match on a substring', () => {
+    // notmailinator.com is somebody else's domain entirely.
+    expect(isDisposableEmail('a@notmailinator.com')).toBe(false);
+  });
+
+  it('follows the domain up, because these services hand out subdomains', () => {
+    expect(isDisposableEmail('a@team.mailinator.com')).toBe(true);
+    expect(isDisposableEmail('a@one.two.yopmail.com')).toBe(true);
+    // Not a suffix match on a label boundary, so not blocked.
+    expect(isDisposableEmail('a@mailinator.com.example.co.ke')).toBe(false);
+  });
+
+  it('says no rather than throwing on nonsense', () => {
+    expect(isDisposableEmail('')).toBe(false);
+    expect(isDisposableEmail('no-at-sign')).toBe(false);
+  });
+});
+
+describe('cleanDisplayName', () => {
+  it('collapses whitespace and trims', () => {
+    expect(cleanDisplayName('  Jones   Admin  ')).toBe('Jones Admin');
+  });
+
+  it('turns tabs and newlines into a space rather than deleting them', () => {
+    expect(cleanDisplayName('Jones\t\tAdmin')).toBe('Jones Admin');
+    expect(cleanDisplayName('Ann\nWanjiku')).toBe('Ann Wanjiku');
+  });
+
+  it('removes zero-width and bidirectional marks', () => {
+    expect(cleanDisplayName('Jo\u200Bnes')).toBe('Jones');
+    expect(cleanDisplayName('abc\u202Edef')).toBe('abcdef');
+  });
+
+  it('leaves real punctuation alone', () => {
+    // Stripping quotes to "prevent injection" corrupts real names, and every
+    // write here goes through a bound parameter anyway.
+    expect(cleanDisplayName("O'Brien-Smith")).toBe("O'Brien-Smith");
+    expect(cleanDisplayName('Anne-Marie da Silva')).toBe('Anne-Marie da Silva');
+  });
+
+  it('caps the length', () => {
+    expect(cleanDisplayName('x'.repeat(200))).toHaveLength(60);
+  });
+
+  it('can return empty, which the caller has to handle', () => {
+    expect(cleanDisplayName('\u200B')).toBe('');
   });
 });

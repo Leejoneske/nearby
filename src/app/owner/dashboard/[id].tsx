@@ -228,7 +228,7 @@ export default function OwnerDashboard() {
             unanswered.slice(0, 2).map((review) => (
               <Card key={review.id} style={styles.reviewCard}>
                 <View style={styles.reviewHeader}>
-                  <Avatar initials={review.authorInitials} size={36} />
+                  <Avatar initials={review.authorInitials} avatar={review.authorAvatar} size={36} />
                   <View style={styles.reviewMeta}>
                     <Text style={styles.reviewAuthor}>{review.authorName}</Text>
                     <View style={styles.reviewSubRow}>

@@ -134,7 +134,7 @@ export default function OwnerReviewsScreen() {
           reviews.map((review) => (
             <Card key={review.id} style={styles.card}>
               <View style={styles.cardHeader}>
-                <Avatar initials={review.authorInitials} size={40} />
+                <Avatar initials={review.authorInitials} avatar={review.authorAvatar} size={40} />
                 <View style={styles.cardMeta}>
                   <Text style={styles.author}>{review.authorName}</Text>
                   <View style={styles.subRow}>

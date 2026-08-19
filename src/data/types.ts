@@ -37,6 +37,8 @@ export type Review = {
   id: string;
   authorName: string;
   authorInitials: string;
+  /** The author's picture, read from their profile at fetch time. */
+  authorAvatar?: string;
   rating: number;
   /** ISO date. */
   date: string;
@@ -121,6 +123,15 @@ export type NewBusiness = {
   /** Where the pin goes. Falls back to wherever the device is. */
   lat?: number;
   lng?: number;
+  /* Everything below is optional: a listing is useful without opening hours
+     and useless without a name, so none of it holds up the form. */
+  description?: string;
+  website?: string;
+  priceFrom?: number;
+  priceTo?: number;
+  hours?: WeekHours;
+  amenities?: string[];
+  photos?: string[];
 };
 
 export type Session = {

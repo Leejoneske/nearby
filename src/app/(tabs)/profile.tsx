@@ -47,7 +47,7 @@ export default function ProfileScreen() {
       >
         {/* Identity */}
         <View style={styles.header}>
-          <Avatar initials={viewer.initials} size={72} verified={viewer.verified} />
+          <Avatar initials={viewer.initials} avatar={viewer.avatar} size={72} verified={viewer.verified} />
           <View style={styles.headerText}>
             <Text style={styles.name}>{viewer.name}</Text>
             <Text style={styles.email}>{viewer.email}</Text>

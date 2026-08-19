@@ -1,6 +1,9 @@
 /** Small shared pieces that would each be too thin for their own file. */
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+
+import { isUpload, presetFrom } from '../lib/avatars';
 
 import {
   colors,
@@ -12,24 +15,52 @@ import {
   type ToneName,
 } from '../theme/tokens';
 
+/**
+ * Somebody's picture, wherever their name appears.
+ *
+ * Three states, in order of preference: an uploaded photo, one of the built-in
+ * presets, or their initials. `avatar` carries whichever of the first two
+ * applies, and it is read from the profile at fetch time rather than copied
+ * on to each review, so changing it changes every place at once.
+ */
 export function Avatar({
   initials,
+  avatar,
   size = 44,
   verified,
 }: {
   initials: string;
+  avatar?: string;
   size?: number;
   verified?: boolean;
 }) {
+  const preset = presetFrom(avatar);
+  const photo = isUpload(avatar) ? avatar : undefined;
+
   return (
     <View>
       <View
         style={[
           styles.avatar,
           { width: size, height: size, borderRadius: size / 2 },
+          preset ? { backgroundColor: tones[preset.tone].fg } : null,
+          photo ? { backgroundColor: colors.surfaceSunken } : null,
         ]}
       >
-        <Text style={[styles.avatarText, { fontSize: size * 0.36 }]}>{initials}</Text>
+        {photo ? (
+          <Image
+            source={{ uri: photo }}
+            style={{ width: size, height: size, borderRadius: size / 2 }}
+            contentFit="cover"
+            // A photo that fails to load leaves the initials underneath
+            // rather than a blank circle.
+            transition={120}
+          />
+        ) : preset ? (
+          <Ionicons name={preset.icon as never} size={size * 0.46} color={colors.textOnAccent} />
+        ) : (
+          <Text style={[styles.avatarText, { fontSize: size * 0.36 }]}>{initials}</Text>
+        )}
       </View>
       {verified ? (
         <View style={[styles.verifyDot, { width: size * 0.34, height: size * 0.34, borderRadius: size * 0.17 }]}>
@@ -175,6 +206,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   avatarText: { color: colors.textOnAccent, fontWeight: '700' },
   verifyDot: {

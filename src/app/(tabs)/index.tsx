@@ -80,7 +80,7 @@ export default function HomeScreen() {
             accessibilityRole="button"
             accessibilityLabel="Your profile"
           >
-            <Avatar initials={viewer.initials} size={44} verified={viewer.verified} />
+            <Avatar initials={viewer.initials} avatar={viewer.avatar} size={44} verified={viewer.verified} />
             <View style={styles.identityText}>
               <Text style={styles.city}>{viewer.city}</Text>
               <View style={styles.locationRow}>

@@ -16,8 +16,9 @@ import { useScreenInsets } from '../../../lib/insets';
 
 import { Button } from '../../../components/Button';
 import { Field } from '../../../components/Field';
-import { Photo } from '../../../components/Photo';
+import { PhotoUploader } from '../../../components/PhotoUploader';
 import { Card, EmptyState } from '../../../components/primitives';
+import { AMENITY_OPTIONS } from '../../../data/amenities';
 import { CATEGORIES, CATEGORY_TONES, categoryOf } from '../../../data/categories';
 import type { CategoryId, WeekHours } from '../../../data/types';
 import { DAY_NAMES, formatDayRange } from '../../../lib/hours';
@@ -28,7 +29,7 @@ export default function EditListingScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getBusiness, updateBusiness } = useStore();
+  const { getBusiness, updateBusiness, userId } = useStore();
 
   const business = getBusiness(id);
 
@@ -43,6 +44,7 @@ export default function EditListingScreen() {
   const [priceTo, setPriceTo] = useState(String(business?.priceTo ?? ''));
   const [hours, setHours] = useState<WeekHours>(business?.hours ?? emptyWeek());
   const [amenities, setAmenities] = useState<string[]>(business?.amenities ?? []);
+  const [photos, setPhotos] = useState<string[]>(business?.photos ?? []);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -79,6 +81,7 @@ export default function EditListingScreen() {
       priceTo: Number(priceTo) || 0,
       hours,
       amenities,
+      photos,
     });
     setSaved(true);
     setTimeout(() => router.back(), 500);
@@ -124,34 +127,7 @@ export default function EditListingScreen() {
       >
         {/* Photos */}
         <Text style={styles.sectionTitle}>Photos</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.photoRow}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Add a photo"
-            style={styles.addPhoto}
-          >
-            <Ionicons name="camera-outline" size={22} color={colors.accent} />
-            <Text style={styles.addPhotoLabel}>Add photo</Text>
-          </Pressable>
-          <Photo
-            categoryId={categoryId}
-            seed={business.id}
-            uri={business.photos[0]}
-            style={styles.photo}
-            radius={radii.lg}
-          />
-          <Photo
-            categoryId={categoryId}
-            seed={`${business.id}-2`}
-            uri={business.photos[1]}
-            style={styles.photo}
-            radius={radii.lg}
-          />
-        </ScrollView>
+        <PhotoUploader photos={photos} onChange={setPhotos} userId={userId} />
 
         {/* Basics */}
         <Text style={styles.sectionTitle}>Basics</Text>
@@ -334,21 +310,6 @@ export default function EditListingScreen() {
     </KeyboardAvoidingView>
   );
 }
-
-const AMENITY_OPTIONS = [
-  'Free wifi',
-  'Parking',
-  'Card payments',
-  'M-Pesa',
-  'Outdoor seating',
-  'Wheelchair access',
-  'Takeaway',
-  'Delivery',
-  'Air conditioning',
-  'Reservations',
-  'Vegetarian options',
-  'Family friendly',
-];
 
 function emptyWeek(): WeekHours {
   return [null, null, null, null, null, null, null];

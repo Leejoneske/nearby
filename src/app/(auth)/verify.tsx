@@ -1,5 +1,5 @@
 /**
- * Six digit code entry.
+ * Sign in code entry.
  *
  * One hidden input backs six visible boxes: a real per-box input array fights
  * autofill and backspace on both platforms, and gets the caret stuck. Here the

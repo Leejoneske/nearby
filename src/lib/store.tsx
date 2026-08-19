@@ -22,6 +22,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -32,6 +33,7 @@ import { DEFAULT_AREA, DEFAULT_CITY } from '../data/location';
 import type { AppNotification, Business, NewBusiness, Review, Session } from '../data/types';
 import * as api from './api';
 import { initialsOf } from './format';
+import { cleanDisplayName } from './identity';
 import { supabase } from './supabase';
 import { useOrigin } from './useOrigin';
 
@@ -42,6 +44,8 @@ export type Viewer = {
   city: string;
   area: string;
   verified: boolean;
+  /** A preset reference or an uploaded file's URL. Undefined means initials. */
+  avatar?: string;
 };
 
 const GUEST: Viewer = {
@@ -71,13 +75,28 @@ type StoreValue = {
 
   viewer: Viewer;
   session: Session;
+  /** The signed in account's id, or null. Storage paths are named after it. */
+  userId: string | null;
   signOut: () => Promise<void>;
-  updateViewer: (patch: Partial<Viewer>) => void;
+  /** Saves a profile edit. Resolves when stored, throws with a reason. */
+  updateViewer: (patch: Partial<Viewer>) => Promise<void>;
+  /** True once the profile row has been read, so onboarding can wait. */
+  profileLoaded: boolean;
+  /**
+   * True when somebody is signed in and we still do not know their name.
+   *
+   * A new account is created with an empty name, so this is the whole of the
+   * onboarding question: it is set for a first sign in and for anybody who
+   * made an account before there was anywhere to type one.
+   */
+  needsName: boolean;
 
   notifications: AppNotification[];
   unreadCount: number;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
+  /** Re-reads the list from the database. */
+  refreshNotifications: () => Promise<void>;
 
   savedIds: string[];
   isSaved: (id: string) => boolean;
@@ -132,13 +151,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     initials: GUEST.initials,
     email: GUEST.email,
     verified: GUEST.verified,
+    avatar: undefined as string | undefined,
+    /** Whether the stored name is theirs rather than the placeholder. */
+    named: false,
   });
+  /** True once the profile row has been read, so onboarding can wait for it. */
+  const [profileLoaded, setProfileLoaded] = useState(false);
 
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [recentIds, setRecentIds] = useState<string[]>([]);
+  /** Which account's listings we have already gone and fetched. */
+  const ownedFetched = useRef<string | null>(null);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
   /* ------------------------------------------------------------ loading -- */
+
+  /**
+   * Folds rows fetched by name into the directory already in memory.
+   *
+   * What is already there wins on conflict: it came from the nearby search,
+   * which is the one that knows how far away things are.
+   */
+  const mergeBusinesses = useCallback((rows: Business[]) => {
+    if (rows.length === 0) return;
+    setBusinesses((prev) => {
+      const have = new Set(prev.map((b) => b.id));
+      const extra = rows.filter((b) => !have.has(b.id));
+      return extra.length === 0 ? prev : [...prev, ...extra];
+    });
+  }, []);
+
+  const { lat: originLat, lng: originLng } = origin;
+  const businessSlugs = useMemo(() => new Set(businesses.map((b) => b.id)), [businesses]);
 
   const loadBusinesses = useCallback(async () => {
     try {
@@ -241,7 +285,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           initials: GUEST.initials,
           email: GUEST.email,
           verified: GUEST.verified,
+          avatar: undefined,
+          named: false,
         });
+        setProfileLoaded(false);
         setSavedIds([]);
         setNotifications([]);
         return;
@@ -267,15 +314,37 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     (async () => {
       try {
-        const [saved, notes] = await Promise.all([
+        const [saved, notes, row] = await Promise.all([
           api.fetchSavedIds(profileId),
           api.fetchNotifications(profileId),
+          api.fetchProfile(profileId),
         ]);
         if (!alive) return;
         setSavedIds(saved);
         setNotifications(notes);
+
+        /*
+         * The name lives in the database and nothing was ever reading it, so
+         * everybody with an account still saw "Guest". It is read here, once,
+         * when there is somebody to read it for.
+         */
+        if (row) {
+          const stored = (row.name ?? '').trim();
+          setProfile((prev) => ({
+            ...prev,
+            // A new account has no name yet. Until they give us one they are
+            // shown the same placeholder as a signed out visitor rather than
+            // a blank space where a name should be.
+            name: stored || GUEST.name,
+            initials: stored ? initialsOf(stored) : GUEST.initials,
+            named: stored.length > 0,
+            avatar: row.avatar_url ?? undefined,
+          }));
+        }
+        setProfileLoaded(true);
       } catch (e) {
         console.warn('[store] loading your data failed', e);
+        if (alive) setProfileLoaded(true);
       }
     })();
 
@@ -284,37 +353,140 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
   }, [profileId]);
 
+  /*
+   * Notifications as they are written, not only at sign in.
+   *
+   * Everything that writes one happens while somebody is looking at the app:
+   * a review lands on their listing, we approve it, somebody replies. Reading
+   * the table once meant the row existed and the bell stayed empty until the
+   * next cold start, which is why this looked like a feature the app did not
+   * have. `notifications_select_own` still decides what a subscriber may
+   * hear, so this carries their own rows and nobody else's.
+   */
+  useEffect(() => {
+    if (!profileId) return;
+
+    const channel = supabase
+      .channel(`notifications:${profileId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `profile_id=eq.${profileId}`,
+        },
+        () => {
+          // Re-read rather than patch the payload in. A notification carries
+          // a business slug from a joined row, which the payload does not.
+          void api
+            .fetchNotifications(profileId)
+            .then(setNotifications)
+            .catch((e) => console.warn('[store] reloading notifications failed', e));
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [profileId]);
+
+  /*
+   * Saved places and listings you own, fetched by name rather than by radius.
+   *
+   * The directory in memory is one page of what is near you, which is the
+   * right answer to "what is near me" and the wrong one to both of these.
+   * Past a hundred listings inside the radius that page stops containing a
+   * place saved in another town, and the Saved tab drops it without saying
+   * anything — a bug that cannot appear until there is enough data for it to.
+   */
+  useEffect(() => {
+    if (!profileId) return;
+
+    const missing = savedIds.filter((slug) => !businessSlugs.has(slug));
+    if (missing.length === 0 && ownedFetched.current === profileId) return;
+    ownedFetched.current = profileId;
+
+    let alive = true;
+    const at = { lat: originLat, lng: originLng };
+    void Promise.all([
+      api.fetchBusinessesBySlugs(missing, at, profileId),
+      api.fetchOwned(profileId, at),
+    ])
+      .then(([savedRows, ownedRows]) => {
+        if (alive) mergeBusinesses([...savedRows, ...ownedRows]);
+      })
+      .catch((e) => console.warn('[store] loading your places failed', e));
+
+    return () => {
+      alive = false;
+    };
+  }, [profileId, savedIds, businessSlugs, originLat, originLng, mergeBusinesses]);
+
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
   }, []);
 
+  /**
+   * Saves the parts of a profile a person edits.
+   *
+   * Rewritten from a version that had three problems. It fired the write from
+   * inside a setState updater, which React is allowed to call twice and does
+   * in development, so every save was sent twice. It sent `area` even when
+   * the caller had not touched it, and that column is NOT NULL, so an
+   * unrelated edit could be refused outright. And it swallowed the refusal,
+   * which is why saving a name appeared to work and changed nothing.
+   *
+   * It resolves when the write lands, and throws when it does not, so the
+   * screen can say so.
+   */
   const updateViewer = useCallback(
-    (patch: Partial<Viewer>) => {
-      setProfile((prev) => {
-        const next = {
-          ...prev,
-          ...(patch.name !== undefined ? { name: patch.name, initials: initialsOf(patch.name) } : {}),
-          ...(patch.email !== undefined ? { email: patch.email } : {}),
-        };
-        if (profileId) {
-          void supabase
-            .from('profiles')
-            .update({ name: next.name, email: next.email, area: patch.area })
-            .eq('id', profileId)
-            .then(({ error: e }) => {
-              if (e) console.warn('[store] saving your profile failed', e);
-            });
-        }
-        return next;
+    async (patch: Partial<Viewer>) => {
+      const name = patch.name === undefined ? undefined : cleanDisplayName(patch.name);
+      if (patch.name !== undefined && !name) {
+        throw new Error('Tell us what to call you.');
+      }
+
+      if (!profileId) {
+        router.push('/(auth)/sign-in');
+        throw new NeedsAccountError();
+      }
+
+      await api.updateProfileRemote(profileId, {
+        name,
+        area: patch.area,
+        avatarUrl: patch.avatar,
+        avatarKind:
+          patch.avatar === undefined
+            ? undefined
+            : patch.avatar === null || patch.avatar === ''
+              ? null
+              : patch.avatar.startsWith('preset:')
+                ? 'preset'
+                : 'upload',
       });
+
+      // Only after the database has taken it. Showing the new name and then
+      // finding out it was refused is the bug this replaced.
+      setProfile((prev) => ({
+        ...prev,
+        ...(name !== undefined ? { name, initials: initialsOf(name), named: true } : {}),
+        ...(patch.avatar !== undefined ? { avatar: patch.avatar || undefined } : {}),
+      }));
     },
     [profileId],
   );
 
   const viewer = useMemo<Viewer>(
-    () => ({ ...profile, city, area }),
+    () => {
+      const { named: _named, ...rest } = profile;
+      return { ...rest, city, area };
+    },
     [profile, city, area],
   );
+
+  const needsName = session.status === 'signedIn' && profileLoaded && !profile.named;
 
   /* -------------------------------------------------------------- saved -- */
 
@@ -358,14 +530,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     void api.markNotificationReadRemote(id).catch(() => {});
   }, []);
 
+  /*
+   * The writes happen here rather than inside the updater. React is allowed
+   * to call an updater twice, and does in development, so a version that
+   * sent them from in there sent every one of them twice.
+   */
   const markAllNotificationsRead = useCallback(() => {
-    setNotifications((prev) => {
-      prev.filter((n) => !n.read).forEach((n) => {
-        void api.markNotificationReadRemote(n.id).catch(() => {});
-      });
-      return prev.map((n) => ({ ...n, read: true }));
+    const unread = notifications.filter((n) => !n.read);
+    if (unread.length === 0) return;
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    unread.forEach((n) => {
+      void api.markNotificationReadRemote(n.id).catch(() => {});
     });
-  }, []);
+  }, [notifications]);
+
+  /** Re-reads the list. The notifications screen calls this when it opens. */
+  const refreshNotifications = useCallback(async () => {
+    if (!profileId) return;
+    try {
+      setNotifications(await api.fetchNotifications(profileId));
+    } catch (e) {
+      console.warn('[store] reloading notifications failed', e);
+    }
+  }, [profileId]);
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.read).length,
@@ -400,6 +587,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           price_to: patch.priceTo,
           hours: patch.hours,
           amenities: patch.amenities,
+          photos: patch.photos,
         })
         .catch((e) => console.warn('[store] saving the listing failed', e));
     },
@@ -424,6 +612,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         phone: input.phone,
         lat: input.lat ?? origin.lat,
         lng: input.lng ?? origin.lng,
+        description: input.description,
+        website: input.website,
+        priceFrom: input.priceFrom,
+        priceTo: input.priceTo,
+        hours: input.hours,
+        amenities: input.amenities,
+        photos: input.photos,
       });
       await loadBusinesses();
       return slug;
@@ -549,12 +744,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       recordEvent,
       viewer,
       session,
+      userId: profileId,
       signOut,
       updateViewer,
+      profileLoaded,
+      needsName,
       notifications,
       unreadCount,
       markNotificationRead,
       markAllNotificationsRead,
+      refreshNotifications,
       savedIds,
       isSaved,
       toggleSaved,
@@ -571,8 +770,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }),
     [
       businesses, loading, error, loadBusinesses, precise, origin, loadDetail, recordEvent,
-      viewer, session, signOut, updateViewer,
+      viewer, session, profileId, signOut, updateViewer, profileLoaded, needsName,
       notifications, unreadCount, markNotificationRead, markAllNotificationsRead,
+      refreshNotifications,
       savedIds, isSaved, toggleSaved, recentIds, markViewed,
       getBusiness, ownedBusinesses, updateBusiness, addBusiness, claimBusiness, reportBusiness,
       replyToReview, addReview,

@@ -11,35 +11,90 @@ import {
   View,
 } from 'react-native';
 
+import { AvatarPicker } from '../../components/AvatarPicker';
 import { Button } from '../../components/Button';
 import { Field } from '../../components/Field';
-import { Avatar } from '../../components/primitives';
+import * as api from '../../lib/api';
+import { storagePath } from '../../lib/avatars';
 import { initialsOf } from '../../lib/format';
+import { cleanDisplayName } from '../../lib/identity';
 import { useScreenInsets } from '../../lib/insets';
-import { useStore } from '../../lib/store';
+import { NeedsAccountError, useStore } from '../../lib/store';
 import { colors, radii, spacing, typography } from '../../theme/tokens';
 
 export default function EditProfileScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
-  const { viewer, updateViewer, session } = useStore();
+  const { viewer, updateViewer, session, userId } = useStore();
 
-  const [name, setName] = useState(viewer.name);
+  const [name, setName] = useState(viewer.name === 'Guest' ? '' : viewer.name);
   const [area, setArea] = useState(viewer.area);
+  const [avatar, setAvatar] = useState<string | undefined>(viewer.avatar);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const nameError = name.trim().length < 2 ? 'Tell us what to call you' : undefined;
-  const canSave = !nameError;
+  const nameError =
+    cleanDisplayName(name).length < 2 ? 'Tell us what to call you' : undefined;
+  const canSave = !nameError && !saving && !uploading;
 
-  const save = () => {
+  /*
+   * A picture is uploaded and stored the moment it is picked rather than held
+   * until Save. It appears next to every review the person has written, so
+   * there is nothing to lose by keeping it and a half finished form to lose
+   * by waiting.
+   */
+  const pick = async (value: string | null, file?: { uri: string; type: string }) => {
+    setError(null);
+
+    if (!file) {
+      setAvatar(value ?? undefined);
+      try {
+        await updateViewer({ avatar: value ?? '' });
+      } catch (e) {
+        setAvatar(viewer.avatar);
+        setError(messageFor(e));
+      }
+      return;
+    }
+
+    if (!userId) {
+      router.push('/(auth)/sign-in');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const url = await api.uploadImage(
+        'avatars',
+        storagePath(userId, file.type),
+        file.uri,
+        file.type,
+      );
+      setAvatar(url);
+      await updateViewer({ avatar: url });
+    } catch (e) {
+      setError(messageFor(e, 'We could not save that picture. Try again.'));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const save = async () => {
     if (!canSave) return;
-    updateViewer({
-      name: name.trim(),
-      initials: initialsOf(name),
-      area: area.trim(),
-    });
-    setSaved(true);
-    setTimeout(() => router.back(), 450);
+    setError(null);
+    setSaving(true);
+    try {
+      await updateViewer({ name, area: area.trim() });
+      setSaved(true);
+      router.back();
+    } catch (e) {
+      if (e instanceof NeedsAccountError) return;
+      setError(messageFor(e));
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -70,10 +125,12 @@ export default function EditProfileScreen() {
         }}
       >
         <View style={styles.avatarBlock}>
-          <Avatar initials={initialsOf(name)} size={84} verified={viewer.verified} />
-          <Text style={styles.avatarNote}>
-            Your initials stand in until photo uploads arrive.
-          </Text>
+          <AvatarPicker
+            initials={initialsOf(name || viewer.name)}
+            current={avatar}
+            uploading={uploading}
+            onPick={(value, file) => void pick(value, file)}
+          />
         </View>
 
         <View style={styles.form}>
@@ -102,18 +159,27 @@ export default function EditProfileScreen() {
             </Text>
           </View>
         </View>
+
+        {error ? <Text style={styles.error}>{error}</Text> : null}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
         <Button
           label={saved ? 'Saved' : 'Save changes'}
           icon={saved ? 'checkmark' : undefined}
-          onPress={save}
+          loading={saving}
+          onPress={() => void save()}
           disabled={!canSave}
         />
       </View>
     </KeyboardAvoidingView>
   );
+}
+
+/** A refusal is worth reading, so the reason is shown rather than swallowed. */
+function messageFor(e: unknown, fallback = 'We could not save that. Try again.'): string {
+  const text = e instanceof Error ? e.message.trim() : '';
+  return text || fallback;
 }
 
 const styles = StyleSheet.create({
@@ -127,13 +193,7 @@ const styles = StyleSheet.create({
   iconButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { ...typography.cardTitle, color: colors.textPrimary, flex: 1, textAlign: 'center' },
 
-  avatarBlock: { alignItems: 'center', gap: spacing.md, paddingVertical: spacing.xl },
-  avatarNote: {
-    ...typography.caption,
-    color: colors.textTertiary,
-    textAlign: 'center',
-    maxWidth: '80%',
-  },
+  avatarBlock: { paddingVertical: spacing.lg },
 
   form: { gap: spacing.xl, marginTop: spacing.lg },
 
@@ -149,6 +209,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   readonlyHint: { ...typography.caption, color: colors.textTertiary },
+
+  error: {
+    ...typography.meta,
+    color: colors.danger,
+    textAlign: 'center',
+    marginTop: spacing.lg,
+  },
 
   footer: {
     position: 'absolute',
