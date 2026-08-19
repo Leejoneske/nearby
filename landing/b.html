@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#FF5A1F" />
+    <title>Nearby</title>
+    <!--
+      Deliberately noindex.
+
+      This page is a share target, not a directory. Its content is one row
+      fetched in the browser, so a crawler sees an empty shell anyway, and
+      indexing thousands of empty shells is worse than indexing none.
+    -->
+    <meta name="robots" content="noindex, follow" />
+    <link rel="icon" href="./favicon.png" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./listing.css" />
+    <script src="./config.js"></script>
+  </head>
+  <body class="listing-page">
+    <header class="listing-top">
+      <a class="listing-brand" href="/">
+        <img src="./img/mark.png" alt="" width="30" height="30" />
+        <span>Nearby</span>
+      </a>
+      <a class="btn btn--accent btn--sm" href="/#download">Get the app</a>
+    </header>
+
+    <main id="listing" class="listing-main">
+      <p class="listing-status">Loading this listing…</p>
+    </main>
+
+    <footer class="listing-foot">
+      <p>
+        Nearby is a free directory of businesses around you.
+        <a href="/">See what it does</a>
+      </p>
+      <p class="listing-fine">&copy; 2026 Nearby · Powered by devCrib</p>
+    </footer>
+
+    <script src="./b.js"></script>
+  </body>
+</html>

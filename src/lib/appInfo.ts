@@ -7,16 +7,24 @@
  *   build        7        — a counter CI raises on every build
  *
  * Android compares the build counter to decide whether an install is an
- * upgrade, so it has to rise every time. The version is what a person quotes
- * when something is wrong, which is why the app shows both.
+ * upgrade, so it has to rise every time. It is not something a person needs
+ * to read: "1.6.0 (11)" invites the question of which number matters, and
+ * neither answer helps anybody. Settings shows the version alone, and the
+ * build stays available for the update check, which is the only thing that
+ * has a use for it.
  */
 import * as Application from 'expo-application';
 import Constants from 'expo-constants';
 
 export type AppVersion = { version: string; build: number | null };
 
-/** Kept separate from the platform reads so it can be tested directly. */
-export function formatVersion({ version, build }: AppVersion): string {
+/** What Settings shows. Kept separate from the platform reads so it can be tested. */
+export function formatVersion({ version }: AppVersion): string {
+  return version || 'Unknown';
+}
+
+/** Version and build together, for a bug report or a log line. */
+export function formatVersionWithBuild({ version, build }: AppVersion): string {
   if (!version) return 'Unknown';
   return build === null ? version : `${version} (${build})`;
 }

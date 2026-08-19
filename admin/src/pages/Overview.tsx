@@ -1,30 +1,54 @@
 /**
- * What the directory looks like right now.
+ * What the directory looks like right now, and what people did with it.
  *
- * Every figure here is counted in `admin_overview()`. Nothing on this screen
- * is estimated, projected or filled in to make the layout look complete — a
+ * The old version counted rows: seven listings, four people. That is a fact
+ * about the database, not about the product, and an admin opening this page
+ * is asking the second question — is anybody using it, is anything broken,
+ * what needs me today.
+ *
+ * Every figure is counted in `admin_overview()` and `admin_daily()`. Nothing
+ * is estimated, projected, or filled in to make the layout look complete: a
  * plausible-looking number on a moderation console is worse than no number,
  * because somebody will act on it.
  */
 import { useEffect, useState } from 'react';
 
-import { fetchActions, fetchOverview, type AdminAction, type Overview as Counts } from '../api';
-import { Banner, Empty, Stat, ago } from '../components';
+import {
+  fetchActivity,
+  fetchDaily,
+  fetchOverview,
+  type Activity,
+  type DailyRow,
+  type Overview as Counts,
+} from '../api';
+import { ACTIVITY_LOOK, Banner, Empty, Sparkbars, Stat, ago } from '../components';
 
-export function Overview({ onGo }: { onGo: (page: 'reports' | 'listings') => void }) {
+type Page = 'overview' | 'listings' | 'reviews' | 'reports' | 'people' | 'activity' | 'health';
+
+export function Overview({ onGo }: { onGo: (page: Page) => void }) {
   const [counts, setCounts] = useState<Counts | null>(null);
-  const [actions, setActions] = useState<AdminAction[]>([]);
+  const [daily, setDaily] = useState<DailyRow[]>([]);
+  const [feed, setFeed] = useState<Activity[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const [reloads, setReloads] = useState(0);
+
   useEffect(() => {
     let alive = true;
+
     (async () => {
       try {
-        const [c, a] = await Promise.all([fetchOverview(), fetchActions()]);
+        const [c, d, a] = await Promise.all([
+          fetchOverview(),
+          fetchDaily(30),
+          fetchActivity({ days: 7, limit: 12 }),
+        ]);
         if (!alive) return;
         setCounts(c);
-        setActions(a);
+        setDaily(d);
+        setFeed(a);
+        setError(null);
       } catch (e) {
         console.warn('[overview]', e);
         if (alive) setError('We could not load the numbers.');
@@ -32,147 +56,232 @@ export function Overview({ onGo }: { onGo: (page: 'reports' | 'listings') => voi
         if (alive) setLoading(false);
       }
     })();
+
     return () => {
       alive = false;
     };
-  }, []);
+  }, [reloads]);
+
+  const labels = daily.map((row) => row.day);
+  const rating = counts?.rating_average == null ? null : Number(counts.rating_average);
 
   return (
     <>
       <div className="page-head">
         <div>
           <h1>Overview</h1>
-          <p>Everything in the directory, counted just now.</p>
+          <p>Counted just now. The last seven days unless a tile says otherwise.</p>
         </div>
+        <button
+          className="btn small"
+          onClick={() => {
+            setLoading(true);
+            setReloads((n) => n + 1);
+          }}
+        >
+          Refresh
+        </button>
       </div>
 
       {error ? <Banner kind="error">{error}</Banner> : null}
 
+      {/* What needs somebody today, before anything that is merely interesting. */}
+      {counts ? (
+        <div className="attention">
+          <Todo
+            label="Waiting for review"
+            count={counts.listings_pending}
+            done="No listings waiting"
+            onGo={() => onGo('listings')}
+          />
+          <Todo
+            label="Open reports"
+            count={counts.reports_open}
+            done="Nothing reported"
+            onGo={() => onGo('reports')}
+          />
+          <Todo
+            label="People hit an error"
+            count={counts.errors_people_week}
+            done="No errors this week"
+            onGo={() => onGo('health')}
+          />
+        </div>
+      ) : null}
+
       {counts ? (
         <>
+          <h2 className="section-title">Use</h2>
+          <div className="stats">
+            <Stat
+              label="Listings opened"
+              value={counts.views_week}
+              note="in the last seven days"
+              chart={
+                <Sparkbars values={daily.map((r) => r.views)} labels={labels} />
+              }
+            />
+            <Stat
+              label="Calls"
+              value={counts.calls_week}
+              note="tapped from a listing"
+              chart={<Sparkbars values={daily.map((r) => r.calls)} labels={labels} />}
+            />
+            <Stat
+              label="Directions"
+              value={counts.directions_week}
+              note="somebody set off"
+              chart={<Sparkbars values={daily.map((r) => r.directions)} labels={labels} />}
+            />
+            <Stat
+              label="People who did something"
+              value={counts.people_active_week}
+              note={`of ${counts.people} accounts`}
+            />
+          </div>
+
+          <h2 className="section-title">The directory</h2>
           <div className="stats">
             <Stat
               label="Live listings"
               value={counts.listings_live}
               note={`${counts.listings_new_week} added this week`}
-            />
-            <Stat
-              label="Waiting for review"
-              value={counts.listings_pending}
-              note={counts.listings_pending > 0 ? 'Submitted, not published' : 'Nothing waiting'}
-              warn={counts.listings_pending > 0}
+              chart={<Sparkbars values={daily.map((r) => r.listings)} labels={labels} accent="steel" />}
             />
             <Stat
               label="Waiting to verify"
               value={counts.listings_unverified}
-              note={counts.listings_unverified > 0 ? 'Needs a look' : 'All caught up'}
+              note={counts.listings_unverified > 0 ? 'Live, unconfirmed' : 'All confirmed'}
               warn={counts.listings_unverified > 0}
             />
+            <Stat label="Suspended" value={counts.listings_suspended} note="Hidden from search" />
             <Stat
-              label="Unclaimed"
-              value={counts.listings_unclaimed}
-              note="Nobody manages these yet"
+              label="Average rating"
+              value={rating === null ? '—' : rating.toFixed(2)}
+              note="across listings with a review"
             />
-            <Stat
-              label="Suspended"
-              value={counts.listings_suspended}
-              note="Hidden from search and the map"
-            />
+          </div>
+
+          <h2 className="section-title">People and reviews</h2>
+          <div className="stats">
             <Stat
               label="People"
               value={counts.people}
               note={`${counts.people_new_week} joined this week`}
+              chart={<Sparkbars values={daily.map((r) => r.people)} labels={labels} accent="steel" />}
             />
             <Stat
               label="Reviews"
               value={counts.reviews_total}
               note={`${counts.reviews_new_week} written this week`}
+              chart={<Sparkbars values={daily.map((r) => r.reviews)} labels={labels} accent="steel" />}
             />
             <Stat
-              label="Open reports"
-              value={counts.reports_open}
-              note={counts.reports_open > 0 ? 'Waiting on you' : 'Nothing reported'}
-              warn={counts.reports_open > 0}
+              label="Awaiting an owner reply"
+              value={counts.reviews_unanswered}
+              note="nobody has answered these"
+            />
+            <Stat
+              label="Unread notifications"
+              value={counts.notifications_unread}
+              note="sent, not yet opened"
             />
           </div>
 
-          {counts.listings_pending > 0 ? (
-            <Banner kind="info">
-              {counts.listings_pending} listing{counts.listings_pending === 1 ? '' : 's'} waiting
-              to be read.{' '}
-              <a
-                href="#listings"
-                onClick={(e) => {
-                  e.preventDefault();
-                  onGo('listings');
-                }}
-              >
-                Open the queue
-              </a>
-            </Banner>
-          ) : null}
-
-          {counts.reports_open > 0 ? (
-            <Banner kind="info">
-              {counts.reports_open} report{counts.reports_open === 1 ? '' : 's'} waiting.{' '}
-              <a
-                href="#reports"
-                onClick={(e) => {
-                  e.preventDefault();
-                  onGo('reports');
-                }}
-              >
-                Open the queue
-              </a>
-            </Banner>
-          ) : null}
+          <h2 className="section-title">Health</h2>
+          <div className="stats">
+            <Stat
+              label="Errors"
+              value={counts.errors_week}
+              note={`${counts.errors_people_week} ${
+                counts.errors_people_week === 1 ? 'person' : 'people'
+              } affected`}
+              warn={counts.errors_week > 0}
+              chart={<Sparkbars values={daily.map((r) => r.errors)} labels={labels} accent="red" />}
+            />
+          </div>
         </>
       ) : null}
 
-      <div className="page-head" style={{ marginTop: 8 }}>
+      <div className="page-head" style={{ marginTop: 24 }}>
         <div>
-          <h2 style={{ fontSize: 16 }}>Recent activity</h2>
-          <p>Every change made from this console, and who made it.</p>
+          <h2 style={{ fontSize: 16 }}>Latest activity</h2>
+          <p>Everything from the last week, newest first.</p>
         </div>
+        <button className="btn small" onClick={() => onGo('activity')}>
+          See all
+        </button>
       </div>
 
       <div className="table-wrap">
-        {actions.length === 0 ? (
+        {feed.length === 0 ? (
           <Empty
-            title={loading ? 'Loading…' : 'Nothing has been changed yet'}
-            body="Suspending a listing, verifying one or resolving a report all show up here."
+            title={loading ? 'Loading…' : 'Nothing has happened yet'}
+            body="Listings, reviews, reports, admin changes and errors all show up here."
           />
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>What</th>
-                <th>Detail</th>
-                <th className="nowrap">When</th>
-              </tr>
-            </thead>
-            <tbody>
-              {actions.map((a) => (
-                <tr key={a.id}>
-                  <td className="cell-title nowrap">{a.action}</td>
-                  <td>
-                    <span className="cell-sub">{describe(a.detail)}</span>
-                  </td>
-                  <td className="nowrap cell-sub">{ago(a.created_at)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <ul className="feed">
+            {feed.map((row, i) => (
+              <FeedRow key={`${row.at}-${i}`} row={row} />
+            ))}
+          </ul>
         )}
       </div>
     </>
   );
 }
 
-/** The audit log's detail is free-form JSON; print it without pretending. */
-function describe(detail: Record<string, unknown>): string {
-  const parts = Object.entries(detail)
-    .filter(([, v]) => v !== null && v !== '' && v !== undefined)
-    .map(([k, v]) => `${k}: ${String(v)}`);
-  return parts.length ? parts.join(' · ') : '—';
+/**
+ * One thing that might need doing.
+ *
+ * Zero is not hidden. "No listings waiting" is information; an absent tile is
+ * ambiguous between nothing to do and a page that failed to load.
+ */
+function Todo({
+  label,
+  count,
+  done,
+  onGo,
+}: {
+  label: string;
+  count: number;
+  done: string;
+  onGo: () => void;
+}) {
+  if (count === 0) {
+    return (
+      <div className="todo todo--clear">
+        <span className="todo-check" aria-hidden="true">
+          ✓
+        </span>
+        {done}
+      </div>
+    );
+  }
+  return (
+    <button className="todo todo--waiting" onClick={onGo}>
+      <span className="todo-count num">{count}</span>
+      <span>{label}</span>
+      <span className="todo-go" aria-hidden="true">
+        →
+      </span>
+    </button>
+  );
+}
+
+export function FeedRow({ row }: { row: Activity }) {
+  const look = ACTIVITY_LOOK[row.kind] ?? { label: row.kind, tone: 'quiet' };
+  return (
+    <li className="feed-row">
+      <span className={`feed-tag tone-${look.tone}`}>{look.label}</span>
+      <div className="feed-body">
+        <div className="feed-title">{row.title}</div>
+        {row.detail ? <div className="feed-detail">{row.detail}</div> : null}
+        {row.actor_name ? <div className="feed-actor">{row.actor_name}</div> : null}
+      </div>
+      <time className="feed-when" dateTime={row.at}>
+        {ago(row.at)}
+      </time>
+    </li>
+  );
 }

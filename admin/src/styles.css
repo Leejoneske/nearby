@@ -706,3 +706,236 @@ tbody tr:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* ------------------------------------------------------ overview shape -- */
+
+.section-title {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-3);
+  margin: 4px 0 10px;
+}
+
+/* A stat is a number with a shape behind it. The chart is optional because
+   not every figure has a history, and an empty chart slot reads as broken. */
+.stat-chart {
+  margin-top: 10px;
+}
+
+.spark {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+
+.spark rect {
+  fill: var(--accent);
+  opacity: 0.85;
+}
+
+.spark--steel rect {
+  fill: var(--steel);
+}
+
+.spark--red rect {
+  fill: var(--red);
+}
+
+/* What needs somebody today, above everything merely interesting. */
+.attention {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.todo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font: inherit;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.todo--waiting {
+  cursor: pointer;
+  border-color: var(--amber);
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.todo--waiting:hover {
+  filter: brightness(0.97);
+}
+
+.todo-count {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.todo-go {
+  opacity: 0.6;
+}
+
+.todo--clear {
+  color: var(--green);
+  background: var(--green-soft);
+  border-color: transparent;
+}
+
+.todo-check {
+  font-weight: 800;
+}
+
+/* ------------------------------------------------------------- the feed -- */
+
+.feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.feed-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.feed-row:last-child {
+  border-bottom: none;
+}
+
+.feed-tag {
+  flex: none;
+  min-width: 62px;
+  text-align: center;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: var(--sunken);
+  color: var(--text-2);
+}
+
+.tone-accent { background: var(--accent-soft); color: var(--accent); }
+.tone-amber  { background: var(--amber-soft);  color: var(--amber); }
+.tone-green  { background: var(--green-soft);  color: var(--green); }
+.tone-red    { background: var(--red-soft);    color: var(--red); }
+.tone-steel  { background: var(--steel-soft);  color: var(--steel); }
+.tone-violet { background: #efe9fb;            color: #6b3fd4; }
+
+.feed-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.feed-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.feed-detail,
+.feed-actor {
+  color: var(--text-2);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.feed-actor {
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.feed-when {
+  flex: none;
+  color: var(--text-3);
+  font-size: 12px;
+  white-space: nowrap;
+  padding-top: 2px;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+}
+
+/* ---------------------------------------------------------- filter chips -- */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+
+.chip {
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.chip:hover {
+  background: var(--sunken);
+}
+
+.chip--on {
+  background: var(--ink, #14181d);
+  border-color: var(--ink, #14181d);
+  color: #fff;
+}
+
+/* ------------------------------------------------------------ sidebar -- */
+
+.nav-group + .nav-group {
+  margin-top: 14px;
+}
+
+.nav-title {
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-3);
+  padding: 0 12px 6px;
+}
+
+/* --------------------------------------------------------- person view -- */
+
+.dialog-body--single {
+  grid-template-columns: 1fr;
+}
+
+.person-group {
+  margin-top: 4px;
+}
+
+.person-group h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  margin: 0 0 6px;
+}
+
+.person-group .feed {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}

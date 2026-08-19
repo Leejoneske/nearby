@@ -276,7 +276,7 @@ export default function HomeScreen() {
         <OwnerCta
           title="Own a business?"
           body="List it free and manage your own profile."
-          onPress={() => router.push('/owner/claim')}
+          onPress={() => router.push('/owner/list')}
         />
       </ScrollView>
     </View>

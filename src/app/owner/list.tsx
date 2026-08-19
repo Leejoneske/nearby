@@ -1,20 +1,23 @@
 /**
- * Add a listing, or claim one that is already here.
+ * Listing a business.
  *
- * Two modes in one screen. With no `business` param it is the four step
- * form: asking for everything at once is how a small-business owner on a
- * phone gives up halfway, and each step validates only its own fields so
- * Continue is never a mystery. The last step is optional throughout — a
- * listing is useful without opening hours and useless without a name. With `?business=<id>` it is a single confirm
- * step that takes over an existing listing instead of creating a second copy
- * of it — which is what happened when this screen only knew how to create.
+ * Four steps rather than one page: asking for everything at once is how a
+ * small-business owner on a phone gives up halfway, and each step validates
+ * only its own fields so Continue is never a mystery. The last step is
+ * optional throughout — a listing is useful without opening hours and
+ * useless without a name.
  *
- * Both need a signed-in account, because both write a row that belongs to
- * somebody. The database enforces that; this screen just asks first rather
- * than letting someone fill in three steps and then fail.
+ * There is deliberately no way to take over somebody else's listing from
+ * here. A business is in this directory because whoever runs it put it
+ * there, which is the only claim of ownership the directory can actually
+ * stand behind.
+ *
+ * It needs a signed-in account, because it writes a row that belongs to
+ * somebody. The database enforces that; this screen asks first rather than
+ * letting somebody fill in four steps and then be refused.
  */
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -37,6 +40,7 @@ import { AMENITY_OPTIONS } from '../../data/amenities';
 import { CATEGORIES, CATEGORY_TONES, categoryOf } from '../../data/categories';
 import type { CategoryId, WeekHours } from '../../data/types';
 import { DAY_NAMES, formatDayRange } from '../../lib/hours';
+import { capturePin, describePin, type Pin } from '../../lib/pinLocation';
 import { useStore } from '../../lib/store';
 import { colors, radii, spacing, tones, typography } from '../../theme/tokens';
 
@@ -50,10 +54,7 @@ function emptyWeek(): WeekHours {
 export default function ClaimScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
-  const { business: claimId } = useLocalSearchParams<{ business?: string }>();
-  const { addBusiness, claimBusiness, getBusiness, session, userId } = useStore();
-
-  const claiming = getBusiness(claimId ?? '');
+  const { addBusiness, session, userId } = useStore();
 
   const [step, setStep] = useState(0);
   const [done, setDone] = useState(false);
@@ -75,6 +76,9 @@ export default function ClaimScreen() {
   const [hours, setHours] = useState<WeekHours>(emptyWeek());
   const [amenities, setAmenities] = useState<string[]>([]);
   const [photos, setPhotos] = useState<string[]>([]);
+  const [pin, setPin] = useState<Pin | null>(null);
+  const [pinning, setPinning] = useState(false);
+  const [pinError, setPinError] = useState<string | null>(null);
 
   const priceError =
     Number(priceTo) > 0 && Number(priceFrom) > Number(priceTo)
@@ -97,6 +101,27 @@ export default function ClaimScreen() {
     });
   };
 
+  /*
+   * A pin is only ever a real fix. If the device cannot give one, the field
+   * stays empty and the listing is placed at the centre of the area instead,
+   * which the step says out loud — a listing quietly dropped on the middle of
+   * town looks deliberate and sends people to the wrong street.
+   */
+  const dropPin = async () => {
+    setPinning(true);
+    setPinError(null);
+    const result = await capturePin();
+    setPinning(false);
+
+    if (!result.ok) {
+      setPinError(result.reason);
+      return;
+    }
+    setPin(result.pin);
+    // The area is usually the thing they were about to type anyway.
+    if (!neighbourhood.trim() && result.pin.area) setNeighbourhood(result.pin.area);
+  };
+
   const toggleAmenity = (amenity: string) =>
     setAmenities((prev) =>
       prev.includes(amenity) ? prev.filter((a) => a !== amenity) : [...prev, amenity],
@@ -115,35 +140,27 @@ export default function ClaimScreen() {
 
     setWorking(true);
     try {
-      if (claiming) {
-        await claimBusiness(claiming.id);
-        setDoneName(claiming.name);
-      } else {
-        await addBusiness({
-          name: name.trim(),
-          categoryId: categoryId ?? 'services',
-          tagline: tagline.trim() || categoryOf(categoryId ?? 'services').label,
-          description: description.trim(),
-          address: address.trim(),
-          neighbourhood: neighbourhood.trim(),
-          phone: phone.trim(),
-          website: website.trim(),
-          priceFrom: Number(priceFrom) || 0,
-          priceTo: Number(priceTo) || 0,
-          hours: hours.some(Boolean) ? hours : undefined,
-          amenities,
-          photos,
-        });
-        setDoneName(name.trim());
-      }
+      await addBusiness({
+        name: name.trim(),
+        categoryId: categoryId ?? 'services',
+        tagline: tagline.trim() || categoryOf(categoryId ?? 'services').label,
+        description: description.trim(),
+        address: address.trim(),
+        neighbourhood: neighbourhood.trim(),
+        phone: phone.trim(),
+        website: website.trim(),
+        priceFrom: Number(priceFrom) || 0,
+        priceTo: Number(priceTo) || 0,
+        hours: hours.some(Boolean) ? hours : undefined,
+        amenities,
+        photos,
+        ...(pin ? { lat: pin.lat, lng: pin.lng } : {}),
+      });
+      setDoneName(name.trim());
       setDone(true);
     } catch (e) {
-      console.warn('[claim] the write was refused', e);
-      setFailure(
-        claiming
-          ? 'We could not add that to your account. Somebody may already manage it.'
-          : 'We could not save that listing just now. Please try again.',
-      );
+      console.warn('[list] the write was refused', e);
+      setFailure('We could not save that listing just now. Please try again.');
     } finally {
       setWorking(false);
     }
@@ -155,13 +172,11 @@ export default function ClaimScreen() {
         <View style={styles.doneIcon}>
           <Ionicons name="checkmark" size={40} color={colors.textOnAccent} />
         </View>
-        <Text style={styles.doneTitle}>
-          {claiming ? `${doneName} is yours to manage` : `${doneName} has been sent for review`}
-        </Text>
+        <Text style={styles.doneTitle}>{doneName} has been sent for review</Text>
         <Text style={styles.doneBody}>
-          {claiming
-            ? 'We will be in touch to confirm the business is yours. Until then it shows as unverified.'
-            : 'We read every listing before it goes live, which usually takes a day. You will get a notification either way, and you can keep editing it in the meantime.'}
+          We read every listing before it goes live, which usually takes a day. You
+          will get a notification either way, and you can keep editing it in the
+          meantime.
         </Text>
         <Card style={styles.doneCard}>
           <Text style={styles.doneNext}>What to do next</Text>
@@ -172,59 +187,6 @@ export default function ClaimScreen() {
         <View style={styles.doneActions}>
           <Button label="Go to my dashboard" onPress={() => router.replace('/(tabs)/profile')} />
           <Button label="Not now" variant="ghost" size="md" onPress={() => router.back()} />
-        </View>
-      </View>
-    );
-  }
-
-  if (claiming) {
-    return (
-      <View style={styles.screen}>
-        <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-          <View style={styles.headerRow}>
-            <Pressable
-              onPress={() => router.back()}
-              hitSlop={10}
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-              style={styles.iconButton}
-            >
-              <Ionicons name="close" size={22} color={colors.textPrimary} />
-            </Pressable>
-            <Text style={styles.headerTitle}>Claim this listing</Text>
-            <View style={styles.iconButton} />
-          </View>
-        </View>
-
-        <View style={styles.claimBody}>
-          <Text style={styles.stepTitle}>{claiming.name}</Text>
-          <Text style={styles.stepBody}>
-            {claiming.address}
-            {claiming.neighbourhood ? `, ${claiming.neighbourhood}` : ''}
-          </Text>
-
-          <Card style={styles.doneCard}>
-            <Text style={styles.doneNext}>What claiming gets you</Text>
-            <NextStep icon="create-outline" text="Edit the details, hours and photos" />
-            <NextStep icon="chatbubbles-outline" text="Reply to reviews as the owner" />
-            <NextStep icon="eye-outline" text="See how many people are finding you" last />
-          </Card>
-
-          <Text style={styles.claimNote}>
-            {signedOut
-              ? 'Sign in first so we know who to give it to.'
-              : 'We will be in touch to confirm the business is yours.'}
-          </Text>
-
-          {failure ? <Text style={styles.failure}>{failure}</Text> : null}
-        </View>
-
-        <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-          <Button
-            label={signedOut ? 'Sign in to claim it' : 'Claim this listing'}
-            loading={working}
-            onPress={finish}
-          />
         </View>
       </View>
     );
@@ -313,8 +275,49 @@ export default function ClaimScreen() {
           <View style={styles.group}>
             <Text style={styles.stepTitle}>Where can people find you?</Text>
             <Text style={styles.stepBody}>
-              You can drop an exact pin on the map after your listing is verified.
+              Standing at the shop? Drop a pin and the map will send people to the
+              door rather than to the middle of the area.
             </Text>
+
+            <Pressable
+              onPress={() => void dropPin()}
+              disabled={pinning}
+              accessibilityRole="button"
+              accessibilityLabel="Use my current location"
+              style={[styles.pinCard, pin && styles.pinCardSet]}
+            >
+              <View style={[styles.pinIcon, pin && styles.pinIconSet]}>
+                <Ionicons
+                  name={pin ? 'checkmark' : 'locate'}
+                  size={19}
+                  color={pin ? colors.textOnAccent : colors.accent}
+                />
+              </View>
+              <View style={styles.pinText}>
+                <Text style={styles.pinTitle}>
+                  {pinning
+                    ? 'Finding you'
+                    : pin
+                      ? 'Location pinned'
+                      : 'Use my current location'}
+                </Text>
+                <Text style={styles.pinBody}>
+                  {pinning
+                    ? 'This takes a few seconds outdoors, longer inside.'
+                    : pin
+                      ? describePin(pin)
+                      : 'Only works if you are at the business right now.'}
+                </Text>
+              </View>
+              {pin ? (
+                <Text style={styles.pinRedo}>Redo</Text>
+              ) : (
+                <Ionicons name="chevron-forward" size={17} color={colors.textTertiary} />
+              )}
+            </Pressable>
+
+            {pinError ? <Text style={styles.failure}>{pinError}</Text> : null}
+
             <Field
               label="Street address"
               value={address}
@@ -327,6 +330,13 @@ export default function ClaimScreen() {
               onChangeText={setNeighbourhood}
               placeholder="e.g. Westlands"
             />
+
+            {!pin ? (
+              <Text style={styles.note}>
+                Without a pin we will place it at the centre of the area you typed,
+                and you can move it later from your dashboard.
+              </Text>
+            ) : null}
           </View>
         ) : null}
 
@@ -429,7 +439,7 @@ export default function ClaimScreen() {
               })}
             </View>
 
-            <Text style={styles.claimNote}>
+            <Text style={styles.note}>
               {signedOut
                 ? 'Sign in on the next step so the listing is saved to your account.'
                 : 'We read every listing before it goes live, which usually takes a day.'}
@@ -536,6 +546,31 @@ const styles = StyleSheet.create({
   stepTitle: { ...typography.title, color: colors.textPrimary },
   stepBody: { ...typography.body, color: colors.textSecondary, marginTop: -spacing.sm },
 
+  pinCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: radii.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+  },
+  pinCardSet: { borderColor: colors.accent },
+  pinIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: radii.md,
+    backgroundColor: colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pinIconSet: { backgroundColor: colors.accent },
+  pinText: { flex: 1, gap: 2 },
+  pinTitle: { ...typography.bodyStrong, color: colors.textPrimary },
+  pinBody: { ...typography.caption, color: colors.textSecondary },
+  pinRedo: { ...typography.metaStrong, color: colors.accent },
+
   priceRow: { flexDirection: 'row', gap: spacing.md },
   priceField: { flex: 1 },
 
@@ -561,8 +596,7 @@ const styles = StyleSheet.create({
   amenityLabel: { ...typography.meta, color: colors.textSecondary },
   amenityLabelSelected: { color: colors.textOnAccent, fontWeight: '600' },
 
-  claimBody: { flex: 1, paddingHorizontal: spacing.screen, gap: spacing.md },
-  claimNote: { ...typography.meta, color: colors.textSecondary },
+  note: { ...typography.meta, color: colors.textSecondary },
   failure: { ...typography.meta, color: colors.danger },
 
   footer: {

@@ -48,3 +48,6 @@ landing/nearby-landing.html
 # Built by the admin console's Vite build, not by hand.
 landing/admin/
 admin/.env.local
+
+# Written at deploy time from the environment.
+landing/config.js

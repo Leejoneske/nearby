@@ -1,5 +1,8 @@
 User-agent: *
 Allow: /
 Disallow: /admin
+# Share targets. Each is one row fetched in the browser, so a crawler sees an
+# empty shell; indexing thousands of those is worse than indexing none.
+Disallow: /b/
 
 Sitemap: https://nearby-lake.vercel.app/sitemap.xml

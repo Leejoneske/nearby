@@ -1,5 +1,5 @@
 /**
- * The console shell: sign in, prove you are an admin, then five screens.
+ * The console shell: sign in, prove you are an admin, then the sections.
  *
  * There are three states here and they are deliberately different: not signed
  * in, signed in but not an admin, and in. The middle one matters — somebody
@@ -17,6 +17,8 @@ import type { Session } from '@supabase/supabase-js';
 import { amIAdmin, fetchOverview } from './api';
 import { Banner } from './components';
 import { SignIn } from './SignIn';
+import { Activity } from './pages/Activity';
+import { Health } from './pages/Health';
 import { Listings } from './pages/Listings';
 import { Overview } from './pages/Overview';
 import { People } from './pages/People';
@@ -24,14 +26,41 @@ import { Reports } from './pages/Reports';
 import { Reviews } from './pages/Reviews';
 import { supabase } from './supabase';
 
-type Page = 'overview' | 'listings' | 'reviews' | 'reports' | 'people';
+export type Page =
+  | 'overview'
+  | 'activity'
+  | 'listings'
+  | 'reviews'
+  | 'reports'
+  | 'people'
+  | 'health';
 
-const PAGES: { id: Page; label: string }[] = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'listings', label: 'Listings' },
-  { id: 'reviews', label: 'Reviews' },
-  { id: 'reports', label: 'Reports' },
-  { id: 'people', label: 'People' },
+/*
+ * Grouped, because a flat list of seven is a list you scan every time.
+ * Watching what is happening, moderating what is in the directory, and
+ * checking whether the thing works are three different jobs.
+ */
+const GROUPS: { title: string; pages: { id: Page; label: string }[] }[] = [
+  {
+    title: 'Watch',
+    pages: [
+      { id: 'overview', label: 'Overview' },
+      { id: 'activity', label: 'Activity' },
+    ],
+  },
+  {
+    title: 'Moderate',
+    pages: [
+      { id: 'listings', label: 'Listings' },
+      { id: 'reviews', label: 'Reviews' },
+      { id: 'reports', label: 'Reports' },
+      { id: 'people', label: 'People' },
+    ],
+  },
+  {
+    title: 'Diagnose',
+    pages: [{ id: 'health', label: 'Health' }],
+  },
 ];
 
 export function App() {
@@ -39,7 +68,11 @@ export function App() {
   const [checked, setChecked] = useState(false);
   const [admin, setAdmin] = useState<boolean | null>(null);
   const [page, setPage] = useState<Page>('overview');
+  // The three counts worth carrying in the sidebar: things waiting on a
+  // person. Anything else there would be decoration on a navigation bar.
   const [openReports, setOpenReports] = useState(0);
+  const [pending, setPending] = useState(0);
+  const [errors, setErrors] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -84,8 +117,16 @@ export function App() {
   const refreshBadge = useCallback(() => {
     if (admin !== true) return;
     void fetchOverview()
-      .then((c) => setOpenReports(c.reports_open))
-      .catch(() => setOpenReports(0));
+      .then((c) => {
+        setOpenReports(c.reports_open);
+        setPending(c.listings_pending);
+        setErrors(c.errors_people_week);
+      })
+      .catch(() => {
+        setOpenReports(0);
+        setPending(0);
+        setErrors(0);
+      });
   }, [admin]);
 
   useEffect(refreshBadge, [refreshBadge, page]);
@@ -139,18 +180,29 @@ export function App() {
           Nearby
         </div>
 
-        {PAGES.map((p) => (
-          <button
-            key={p.id}
-            className="nav-item"
-            aria-current={page === p.id ? 'page' : undefined}
-            onClick={() => setPage(p.id)}
-          >
-            {p.label}
-            {p.id === 'reports' && openReports > 0 ? (
-              <span className="nav-count">{openReports}</span>
-            ) : null}
-          </button>
+        {GROUPS.map((group) => (
+          <div className="nav-group" key={group.title}>
+            <div className="nav-title">{group.title}</div>
+            {group.pages.map((p) => (
+              <button
+                key={p.id}
+                className="nav-item"
+                aria-current={page === p.id ? 'page' : undefined}
+                onClick={() => setPage(p.id)}
+              >
+                {p.label}
+                {p.id === 'reports' && openReports > 0 ? (
+                  <span className="nav-count">{openReports}</span>
+                ) : null}
+                {p.id === 'listings' && pending > 0 ? (
+                  <span className="nav-count">{pending}</span>
+                ) : null}
+                {p.id === 'health' && errors > 0 ? (
+                  <span className="nav-count">{errors}</span>
+                ) : null}
+              </button>
+            ))}
+          </div>
         ))}
 
         <div className="sidebar-foot">
@@ -172,8 +224,12 @@ function Body({ page, onGo }: { page: Page; onGo: (p: Page) => void }) {
   switch (page) {
     case 'overview':
       return <Overview onGo={onGo} />;
+    case 'activity':
+      return <Activity />;
     case 'listings':
       return <Listings />;
+    case 'health':
+      return <Health />;
     case 'reviews':
       return <Reviews />;
     case 'reports':

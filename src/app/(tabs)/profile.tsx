@@ -6,6 +6,7 @@ import { useScreenInsets } from '../../lib/insets';
 import { Button } from '../../components/Button';
 import { Photo } from '../../components/Photo';
 import { Avatar, Card, InfoRow, Pill, SectionHeader } from '../../components/primitives';
+import { useUpdates } from '../../components/UpdateGate';
 import { appVersionLabel } from '../../lib/appInfo';
 
 import { useStore } from '../../lib/store';
@@ -24,6 +25,23 @@ export default function ProfileScreen() {
   const insets = useScreenInsets();
   const { viewer, savedIds, recentIds, ownedBusinesses, signOut, unreadCount, session } =
     useStore();
+  const { manual, checkNow } = useUpdates();
+
+  /*
+   * The version row is the one place somebody looks when they suspect they
+   * are behind, so it is the place that answers. Saying nothing after a tap
+   * is what made the app look like it could not see updates at all.
+   */
+  const updateStatus =
+    manual === null
+      ? 'Tap to check for updates'
+      : manual.kind === 'checking'
+        ? 'Checking'
+        : manual.kind === 'current'
+          ? 'You are on the latest version'
+          : manual.kind === 'available'
+            ? 'An update is ready'
+            : 'We could not check just now';
 
   const signedOut = session.status === 'signedOut';
 
@@ -33,7 +51,7 @@ export default function ProfileScreen() {
    * one at the point somebody reaches for them rather than three screens
    * later.
    */
-  const needsAccount = (destination: '/settings/profile' | '/owner/claim') =>
+  const needsAccount = (destination: '/settings/profile' | '/owner/list') =>
     router.push(signedOut ? '/(auth)/sign-in' : destination);
 
   return (
@@ -118,7 +136,7 @@ export default function ProfileScreen() {
               icon={signedOut ? 'log-in-outline' : 'add'}
               variant={ownedBusinesses.length > 0 ? 'secondary' : 'primary'}
               size="md"
-              onPress={() => needsAccount('/owner/claim')}
+              onPress={() => needsAccount('/owner/list')}
             />
           </View>
         </View>
@@ -153,11 +171,12 @@ export default function ProfileScreen() {
               tone="steel"
               onPress={() => router.push('/legal/terms')}
             />
-            {/* No tone: nothing to tap, so nothing to draw the eye. */}
             <InfoRow
               icon="information-circle-outline"
-              label="Version"
-              value={appVersionLabel()}
+              label={`Version ${appVersionLabel()}`}
+              value={updateStatus}
+              tone="violet"
+              onPress={checkNow}
               last
             />
           </Card>

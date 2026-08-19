@@ -19,6 +19,7 @@ import {
   formatReviewCount,
 } from '../../lib/format';
 import { DAY_NAMES, formatDayRange, openState } from '../../lib/hours';
+import { shareBusiness } from '../../lib/sharing';
 import { callPhone, openDirections, openWebsite } from '../../lib/openLink';
 import { NeedsAccountError, useStore } from '../../lib/store';
 import { absoluteFill, colors, radii, shadows, spacing, typography } from '../../theme/tokens';
@@ -27,7 +28,7 @@ export default function BusinessScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getBusiness, isSaved, toggleSaved, loadDetail, recordEvent, reportBusiness } =
+  const { getBusiness, isSaved, toggleSaved, loadDetail, recordEvent, reportBusiness, markViewed } =
     useStore();
   const [reporting, setReporting] = useState(false);
 
@@ -39,12 +40,24 @@ export default function BusinessScreen() {
     if (id) void loadDetail(id);
   }, [id, loadDetail]);
 
-  // The view is recorded once the listing is in hand, which is what gives the
-  // owner's dashboard something real to count.
+  /*
+   * Both records of a view are made here, because here is where the view
+   * happens.
+   *
+   * `markViewed` used to be called by the list screens instead, so opening a
+   * business from the home feed, the map or a notification recorded nothing
+   * at all — which is why Recent was empty for somebody who had plainly been
+   * looking at businesses. One screen is reached by every route in, and this
+   * is it.
+   */
   const dbId = business?.dbId;
   useEffect(() => {
     if (dbId) recordEvent(dbId, 'view');
   }, [dbId, recordEvent]);
+
+  useEffect(() => {
+    if (id) markViewed(id);
+  }, [id, markViewed]);
 
   // Every hook has to run before the early return below. Navigating from a
   // listing that exists to one that does not would otherwise change the hook
@@ -128,11 +141,17 @@ export default function BusinessScreen() {
                 />
               </Pressable>
               <Pressable
+                onPress={() => void shareBusiness(business)}
                 accessibilityRole="button"
                 accessibilityLabel="Share this business"
                 style={styles.heroButton}
               >
-                <Ionicons name="share-outline" size={20} color={colors.textPrimary} />
+                {/*
+                  * `share-social` rather than `share`. Ionicons' `share` is
+                  * the iOS box-with-an-arrow, which on Android reads as
+                  * upload or export; the linked nodes read as share on both.
+                  */}
+                <Ionicons name="share-social-outline" size={20} color={colors.textPrimary} />
               </Pressable>
             </View>
           </View>
@@ -346,9 +365,9 @@ export default function BusinessScreen() {
             ))}
           </Section>
 
-          {/* Claim / manage */}
+          {/* Manage, or an invitation to list one of your own */}
           {business.ownedByViewer ? (
-            <View style={styles.claimBlock}>
+            <View style={styles.ownerBlock}>
               <Button
                 label="Manage this listing"
                 icon="settings-outline"
@@ -357,18 +376,18 @@ export default function BusinessScreen() {
             </View>
           ) : (
             /*
-             * An invitation to list, not to claim.
+             * An invitation to list your own, and nothing else.
              *
-             * Claiming somebody else's listing is a decision that needs
-             * checking before it is offered as a one-tap action, and there is
-             * nothing checking it yet. Until there is, this says the same
-             * thing the home screen says, and means it.
+             * This is not the place to offer somebody a listing that is not
+             * theirs. A business is in this directory because whoever runs it
+             * put it there, so the only thing worth saying to a visitor is
+             * the same thing the home screen says.
              */
-            <View style={styles.claimWrap}>
+            <View style={styles.ownerWrap}>
               <OwnerCta
                 title="Own a business?"
                 body="List it free and manage your own profile."
-                onPress={() => router.push('/owner/claim')}
+                onPress={() => router.push('/owner/list')}
               />
             </View>
           )}
@@ -652,8 +671,8 @@ const styles = StyleSheet.create({
   },
   reportText: { ...typography.meta, color: colors.textTertiary },
 
-  claimBlock: { paddingHorizontal: spacing.screen, marginBottom: spacing.xxl },
-  claimWrap: { marginBottom: spacing.xxl },
+  ownerBlock: { paddingHorizontal: spacing.screen, marginBottom: spacing.xxl },
+  ownerWrap: { marginBottom: spacing.xxl },
 
   stickyBar: {
     position: 'absolute',

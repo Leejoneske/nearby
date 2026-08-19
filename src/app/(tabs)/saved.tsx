@@ -18,7 +18,7 @@ import {
 export default function SavedScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
-  const { businesses, savedIds, toggleSaved, markViewed } = useStore();
+  const { businesses, savedIds, toggleSaved } = useStore();
   const now = useMemo(() => new Date(), []);
 
   // Preserve the order the user saved things in, newest first.
@@ -56,10 +56,7 @@ export default function SavedScreen() {
             last={index === saved.length - 1}
             saved
             onToggleSave={() => toggleSaved(item.id)}
-            onPress={() => {
-              markViewed(item.id);
-              router.push(`/business/${item.id}`);
-            }}
+            onPress={() => router.push(`/business/${item.id}`)}
           />
         )}
         ListEmptyComponent={

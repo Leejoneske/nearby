@@ -119,7 +119,16 @@ export function formatSize(bytes: number | undefined): string | undefined {
  * changes every few days. Once a day is plenty, and a device with no stored
  * answer checks immediately.
  */
-export const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+/*
+ * Six hours, not a day.
+ *
+ * A day sounds thrifty until you install a build, the app stamps the clock on
+ * first launch, a fix ships an hour later and the app cannot see it until
+ * tomorrow — which is what "it never notices updates" turned out to be. The
+ * request is one small JSON fetch, and there is a manual check in Settings
+ * for anybody who does not want to wait even that long.
+ */
+export const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 export function shouldCheck(lastCheckedAt: number | null, now: number): boolean {
   if (lastCheckedAt === null) return true;
@@ -128,13 +137,35 @@ export function shouldCheck(lastCheckedAt: number | null, now: number): boolean 
   return now - lastCheckedAt >= CHECK_INTERVAL_MS;
 }
 
+/** What a dismissal remembers. */
+export type Dismissed = { version: string; build?: number };
+
 /**
- * Has this version already been turned down?
+ * Has this build already been turned down?
  *
  * Declining an update means "not this one", not "never ask again" — so the
- * dismissal is recorded against the version, and a newer one asks afresh.
+ * dismissal is recorded and a newer release asks afresh.
+ *
+ * The build counter is part of the record, and that was the bug: it used to
+ * compare versions alone, so turning down 1.5.0 build 11 also silenced 1.5.0
+ * build 12. Rebuilds of the same version are exactly what a sideloaded app
+ * ships most often, which made a single "not now" mute the update prompt for
+ * the rest of that version's life.
  */
-export function wasDismissed(dismissedVersion: string | null, release: Release): boolean {
-  if (!dismissedVersion) return false;
-  return compareVersions(dismissedVersion, release.version) >= 0;
+export function wasDismissed(dismissed: Dismissed | null, release: Release): boolean {
+  if (!dismissed) return false;
+  return !isNewer(dismissed, release);
+}
+
+/** Round-trips a dismissal through storage. "1.5.0" or "1.5.0+11". */
+export function serialiseDismissed(release: Release): string {
+  return release.build === undefined ? release.version : `${release.version}+${release.build}`;
+}
+
+export function parseDismissed(raw: string | null): Dismissed | null {
+  if (!raw) return null;
+  const [version, build] = raw.split('+');
+  if (!version) return null;
+  const parsed = Number.parseInt(build ?? '', 10);
+  return { version, build: Number.isFinite(parsed) ? parsed : undefined };
 }

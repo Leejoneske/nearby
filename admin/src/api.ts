@@ -19,9 +19,73 @@ export type Overview = {
   listings_new_week: number;
   people: number;
   people_new_week: number;
+  people_active_week: number;
   reviews_total: number;
   reviews_new_week: number;
+  reviews_unanswered: number;
+  rating_average: number | string | null;
   reports_open: number;
+  views_week: number;
+  calls_week: number;
+  directions_week: number;
+  errors_week: number;
+  errors_people_week: number;
+  notifications_unread: number;
+};
+
+/** One line in the unified feed. Every source is folded into this shape. */
+export type ActivityKind =
+  | 'listing'
+  | 'review'
+  | 'reply'
+  | 'person'
+  | 'report'
+  | 'admin'
+  | 'error';
+
+export type Activity = {
+  at: string;
+  kind: ActivityKind;
+  title: string;
+  detail: string | null;
+  actor_id: string | null;
+  actor_name: string | null;
+  target_id: string | null;
+  target_name: string | null;
+};
+
+export type ErrorGroup = {
+  fingerprint: string;
+  message: string;
+  screen: string;
+  occurrences: number;
+  people: number;
+  platforms: string | null;
+  versions: string | null;
+  first_seen: string;
+  last_seen: string;
+};
+
+export type DailyRow = {
+  day: string;
+  views: number;
+  calls: number;
+  directions: number;
+  reviews: number;
+  listings: number;
+  people: number;
+  errors: number;
+};
+
+export type PersonDetail = {
+  profile: { id: string; name: string | null; email: string | null; area: string | null; created_at: string; avatar_url: string | null };
+  listings: { id: string; slug: string; name: string; status: BusinessStatus; verified: boolean; rating: number | string; review_count: number; created_at: string }[];
+  reviews: { id: string; business: string; rating: number; body: string; created_at: string }[];
+  saved_count: number;
+  reports_filed: number;
+  errors: { message: string; screen: string; platform: string; app_version: string; created_at: string }[];
+  last_seen: string | null;
+  platforms: string;
 };
 
 export type AdminBusiness = {
@@ -149,6 +213,50 @@ export async function fetchBusinesses(options: {
   // The generated row type widens once `.or()` is in play, so the cast goes
   // through `unknown`. The shape is pinned by the select list above.
   return (data ?? []) as unknown as AdminBusiness[];
+}
+
+/**
+ * Everything that happened, newest first.
+ *
+ * One call rather than six, because an admin trying to understand a morning
+ * should not have to line five screens up by eye.
+ */
+export async function fetchActivity(
+  options: { kinds?: ActivityKind[]; days?: number; limit?: number } = {},
+): Promise<Activity[]> {
+  const since =
+    options.days === undefined
+      ? null
+      : new Date(Date.now() - options.days * 86_400_000).toISOString();
+
+  const { data, error } = await supabase.rpc('admin_activity', {
+    in_kinds: options.kinds && options.kinds.length > 0 ? options.kinds : null,
+    in_since: since,
+    in_limit: options.limit ?? 200,
+  });
+  if (error) throw error;
+  return (data ?? []) as Activity[];
+}
+
+/** Errors grouped by what they are, because a hundred of one is one problem. */
+export async function fetchErrorGroups(days = 7): Promise<ErrorGroup[]> {
+  const { data, error } = await supabase.rpc('admin_error_groups', { in_days: days });
+  if (error) throw error;
+  return (data ?? []) as ErrorGroup[];
+}
+
+/** Daily counts, with the quiet days present as zero rather than missing. */
+export async function fetchDaily(days = 30): Promise<DailyRow[]> {
+  const { data, error } = await supabase.rpc('admin_daily', { in_days: days });
+  if (error) throw error;
+  return (data ?? []) as DailyRow[];
+}
+
+/** Everything one account has done. */
+export async function fetchPerson(id: string): Promise<PersonDetail> {
+  const { data, error } = await supabase.rpc('admin_person', { in_profile_id: id });
+  if (error) throw error;
+  return data as PersonDetail;
 }
 
 export async function fetchReviews(options: { unansweredOnly?: boolean } = {}) {

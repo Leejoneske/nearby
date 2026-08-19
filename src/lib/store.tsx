@@ -27,6 +27,7 @@ import React, {
   type ReactNode,
 } from 'react';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 
 import { DEFAULT_AREA, DEFAULT_CITY } from '../data/location';
@@ -34,8 +35,13 @@ import type { AppNotification, Business, NewBusiness, Review, Session } from '..
 import * as api from './api';
 import { initialsOf } from './format';
 import { cleanDisplayName } from './identity';
+import { reportError } from './errorReporting';
 import { supabase } from './supabase';
 import { useOrigin } from './useOrigin';
+
+/** What you looked at, kept on the device. Twenty is a page of scrolling. */
+const RECENT_KEY = 'nearby.recent.v1';
+const RECENT_LIMIT = 20;
 
 export type Viewer = {
   name: string;
@@ -113,8 +119,6 @@ type StoreValue = {
   updateBusiness: (id: string, patch: Partial<Business>) => void;
   /** Lists a new business. Resolves to its id, or throws with a reason. */
   addBusiness: (input: NewBusiness) => Promise<string>;
-  /** Takes over an unowned listing. Throws with a reason if refused. */
-  claimBusiness: (id: string) => Promise<void>;
   replyToReview: (businessId: string, reviewId: string, body: string) => void;
   addReview: (businessId: string, review: Review) => void;
 };
@@ -192,7 +196,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       // Deliberately not the raw Postgres message — that is for the log.
       setError('We could not load places near you. Check your connection.');
-      console.warn('[store] loading businesses failed', e);
+      reportError('store/businesses', e);
     } finally {
       setLoading(false);
     }
@@ -213,7 +217,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const rows = await api
         .fetchNearby(origin, { radiusM: 50_000 })
         .catch((e) => {
-          console.warn('[store] loading businesses failed', e);
+          reportError('store/businesses', e);
           return null;
         });
       if (!alive) return;
@@ -245,7 +249,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return known ? prev.map((b) => (b.id === id ? { ...b, ...full } : b)) : [...prev, full];
         });
       } catch (e) {
-        console.warn('[store] loading the listing failed', e);
+        reportError('store/detail', e);
       }
     },
     // Depends only on things that change rarely, so a screen can put this in
@@ -343,7 +347,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
         setProfileLoaded(true);
       } catch (e) {
-        console.warn('[store] loading your data failed', e);
+        reportError('store/profile', e);
         if (alive) setProfileLoaded(true);
       }
     })();
@@ -382,7 +386,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           void api
             .fetchNotifications(profileId)
             .then(setNotifications)
-            .catch((e) => console.warn('[store] reloading notifications failed', e));
+            .catch((e) => reportError('store/notifications', e));
         },
       )
       .subscribe();
@@ -417,12 +421,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .then(([savedRows, ownedRows]) => {
         if (alive) mergeBusinesses([...savedRows, ...ownedRows]);
       })
-      .catch((e) => console.warn('[store] loading your places failed', e));
+      .catch((e) => reportError('store/places', e));
 
     return () => {
       alive = false;
     };
   }, [profileId, savedIds, businessSlugs, originLat, originLng, mergeBusinesses]);
+
+  // What was viewed last time, and the listings behind those slugs. The
+  // nearby page will not contain all of them — that is the same reason Saved
+  // fetches by name — so anything missing is fetched the same way.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(RECENT_KEY);
+        const stored: unknown = raw ? JSON.parse(raw) : [];
+        if (!alive || !Array.isArray(stored)) return;
+
+        const ids = stored.filter((v): v is string => typeof v === 'string').slice(0, RECENT_LIMIT);
+        if (ids.length === 0) return;
+
+        // Anything viewed since launch stays in front of the stored list
+        // rather than being replaced by it.
+        setRecentIds((prev) => [...prev, ...ids.filter((id) => !prev.includes(id))].slice(0, RECENT_LIMIT));
+        const rows = await api.fetchBusinessesBySlugs(ids, { lat: originLat, lng: originLng });
+        if (alive) mergeBusinesses(rows);
+      } catch (e) {
+        reportError('store/recent', e);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [originLat, originLng, mergeBusinesses]);
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
@@ -512,15 +545,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       if (!business?.dbId) return;
       api.setSaved(profileId, business.dbId, next).catch((e) => {
-        console.warn('[store] saving failed', e);
+        reportError('store/saving', e);
         setSavedIds((prev) => (next ? prev.filter((x) => x !== id) : [id, ...prev]));
       });
     },
     [businesses, savedIds, profileId],
   );
 
+  /*
+   * Recent is kept on the device, not in the database.
+   *
+   * It is a convenience, not a record: it should work signed out, it should
+   * not follow somebody to another phone, and what you looked at is nobody
+   * else's business. Before this it was React state alone, so the list
+   * emptied itself on every restart and looked broken.
+   */
   const markViewed = useCallback((id: string) => {
-    setRecentIds((prev) => [id, ...prev.filter((x) => x !== id)].slice(0, 20));
+    setRecentIds((prev) => {
+      if (prev[0] === id) return prev;
+      const next = [id, ...prev.filter((x) => x !== id)].slice(0, RECENT_LIMIT);
+      void AsyncStorage.setItem(RECENT_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
   }, []);
 
   /* ------------------------------------------------------ notifications -- */
@@ -550,7 +596,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       setNotifications(await api.fetchNotifications(profileId));
     } catch (e) {
-      console.warn('[store] reloading notifications failed', e);
+      reportError('store/notifications', e);
     }
   }, [profileId]);
 
@@ -589,14 +635,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           amenities: patch.amenities,
           photos: patch.photos,
         })
-        .catch((e) => console.warn('[store] saving the listing failed', e));
+        .catch((e) => reportError('store/listing', e));
     },
     [businesses],
   );
 
   /*
-   * Listing and claiming both write first and reload after, rather than
-   * showing an optimistic row. Everything else in here can be put back if a
+   * Listing writes first and reloads after, rather than showing an
+   * optimistic row. Everything else in here can be put back if a
    * write is refused; a listing cannot — it has a database-generated id that
    * the detail screen immediately navigates to, and inventing one locally is
    * how you get a screen pointing at a listing that does not exist.
@@ -655,14 +701,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [businesses, profileId],
   );
 
-  const claimBusiness = useCallback(
-    async (id: string) => {
-      await api.claimBusinessRemote(id);
-      await loadBusinesses();
-    },
-    [loadBusinesses],
-  );
-
   const replyToReview = useCallback(
     (businessId: string, reviewId: string, body: string) => {
       const date = new Date().toISOString().slice(0, 10);
@@ -680,7 +718,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       );
       void api
         .replyToReviewRemote(reviewId, body)
-        .catch((e) => console.warn('[store] replying failed', e));
+        .catch((e) => reportError('store/reply', e));
     },
     [],
   );
@@ -763,7 +801,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ownedBusinesses,
       updateBusiness,
       addBusiness,
-      claimBusiness,
       reportBusiness,
       replyToReview,
       addReview,
@@ -774,7 +811,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       notifications, unreadCount, markNotificationRead, markAllNotificationsRead,
       refreshNotifications,
       savedIds, isSaved, toggleSaved, recentIds, markViewed,
-      getBusiness, ownedBusinesses, updateBusiness, addBusiness, claimBusiness, reportBusiness,
+      getBusiness, ownedBusinesses, updateBusiness, addBusiness, reportBusiness,
       replyToReview, addReview,
     ],
   );

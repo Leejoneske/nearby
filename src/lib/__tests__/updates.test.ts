@@ -7,6 +7,8 @@ import {
   parseTag,
   shouldCheck,
   wasDismissed,
+  parseDismissed,
+  serialiseDismissed,
   type Release,
 } from '../updates';
 
@@ -123,16 +125,50 @@ describe('shouldCheck', () => {
 });
 
 describe('wasDismissed', () => {
-  it('stays dismissed for the version that was turned down', () => {
-    expect(wasDismissed('1.4.0', release())).toBe(true);
+  it('stays dismissed for the build that was turned down', () => {
+    expect(wasDismissed({ version: '1.4.0', build: 9 }, release())).toBe(true);
   });
 
-  it('asks again for a newer one', () => {
-    expect(wasDismissed('1.3.0', release())).toBe(false);
+  it('asks again for a newer version', () => {
+    expect(wasDismissed({ version: '1.3.0', build: 8 }, release())).toBe(false);
+  });
+
+  /*
+   * The bug this replaced. A sideloaded app ships rebuilds of the same
+   * version more often than it bumps the version, and comparing versions
+   * alone meant one "not now" silenced every one of them.
+   */
+  it('asks again for a newer build of the same version', () => {
+    expect(wasDismissed({ version: '1.4.0', build: 8 }, release())).toBe(false);
   });
 
   it('asks when nothing has been dismissed', () => {
     expect(wasDismissed(null, release())).toBe(false);
+  });
+});
+
+describe('a dismissal survives storage', () => {
+  it('round-trips a version and a build', () => {
+    expect(parseDismissed(serialiseDismissed(release()))).toEqual({
+      version: '1.4.0',
+      build: 9,
+    });
+  });
+
+  it('round-trips a release with no build counter', () => {
+    expect(parseDismissed(serialiseDismissed(release({ build: undefined })))).toEqual({
+      version: '1.4.0',
+      build: undefined,
+    });
+  });
+
+  it('reads a value written before builds were recorded', () => {
+    expect(parseDismissed('1.4.0')).toEqual({ version: '1.4.0', build: undefined });
+  });
+
+  it('treats nothing stored as nothing dismissed', () => {
+    expect(parseDismissed(null)).toBeNull();
+    expect(parseDismissed('')).toBeNull();
   });
 });
 

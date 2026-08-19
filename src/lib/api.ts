@@ -401,18 +401,6 @@ export async function createBusinessRemote(input: {
 }
 
 /**
- * Takes over a listing that nobody manages yet.
- *
- * The database refuses this when the listing already belongs to somebody
- * else, and leaves `verified` false either way — a claim is a request to
- * manage, not proof of ownership.
- */
-export async function claimBusinessRemote(slug: string): Promise<void> {
-  const { error } = await supabase.rpc('claim_business', { in_slug: slug });
-  if (error) throw error;
-}
-
-/**
  * Flags a listing or a review for somebody to look at.
  *
  * Requires an account: a report names its reporter, and an anonymous flag is
@@ -435,15 +423,22 @@ export async function createReport(input: {
   if (error) throw error;
 }
 
-/** Records that somebody looked at, called, or asked directions to a listing. */
+/**
+ * Records that somebody looked at, called, or asked directions to a listing.
+ *
+ * The platform rides along so the console can tell a fault that is everywhere
+ * from one that is only on Android. It is the device family and version, and
+ * deliberately nothing that identifies a handset.
+ */
 export async function recordEvent(
   businessDbId: string,
   kind: 'view' | 'call' | 'directions',
 ) {
-  // Fire and forget: a lost analytics event must never interrupt a tap.
+  // Fire and forget: a lost count must never interrupt a tap.
   const { error } = await supabase.rpc('record_business_event', {
     in_business_id: businessDbId,
     in_kind: kind,
+    in_platform: `${Platform.OS}${Platform.Version ? ` ${Platform.Version}` : ''}`,
   });
   if (error) console.warn('[api] recording an event failed', error);
 }

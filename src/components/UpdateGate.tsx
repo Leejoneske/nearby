@@ -1,23 +1,43 @@
 /**
- * Wires the update check to the sheet, once, above every screen.
+ * One update check for the whole app, and the sheet it drives.
  *
- * Kept apart from the layout so the layout stays a description of the
- * navigation and nothing else.
+ * A provider rather than a leaf component because two screens need it now:
+ * the sheet that appears on its own, and the row in Settings that asks on
+ * demand. Calling the hook twice would mean two launch checks, two foreground
+ * listeners and two disagreeing answers.
  */
-import { UpdateSheet } from './UpdateSheet';
-import { useUpdatePrompt } from '../lib/useUpdatePrompt';
+import { createContext, useContext, type ReactNode } from 'react';
 
-export function UpdateGate() {
-  const { release, visible, state, canInstallHere, install, dismiss } = useUpdatePrompt();
+import { useUpdatePrompt, type ManualCheck } from '../lib/useUpdatePrompt';
+import { UpdateSheet } from './UpdateSheet';
+
+type UpdateValue = {
+  /** What a manual check found, or null if nobody has asked yet. */
+  manual: ManualCheck | null;
+  checkNow: () => void;
+};
+
+const UpdateContext = createContext<UpdateValue>({ manual: null, checkNow: () => {} });
+
+export function UpdateGate({ children }: { children?: ReactNode }) {
+  const { release, visible, state, canInstallHere, install, dismiss, manual, checkNow } =
+    useUpdatePrompt();
 
   return (
-    <UpdateSheet
-      visible={visible}
-      release={release}
-      state={state}
-      canInstallHere={canInstallHere}
-      onInstall={install}
-      onDismiss={dismiss}
-    />
+    <UpdateContext.Provider value={{ manual, checkNow }}>
+      {children}
+      <UpdateSheet
+        visible={visible}
+        release={release}
+        state={state}
+        canInstallHere={canInstallHere}
+        onInstall={install}
+        onDismiss={dismiss}
+      />
+    </UpdateContext.Provider>
   );
+}
+
+export function useUpdates(): UpdateValue {
+  return useContext(UpdateContext);
 }

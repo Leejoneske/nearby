@@ -24,7 +24,7 @@ const RADIUS_OPTIONS = [500, 1000, 2000, 5000, 10000];
 export default function SearchScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
-  const { businesses, loading, isSaved, toggleSaved, markViewed } = useStore();
+  const { businesses, loading, isSaved, toggleSaved } = useStore();
   const params = useLocalSearchParams<{
     q?: string;
     category?: string;
@@ -190,10 +190,7 @@ export default function SearchScreen() {
             last={index === results.length - 1}
             saved={isSaved(item.id)}
             onToggleSave={() => toggleSaved(item.id)}
-            onPress={() => {
-              markViewed(item.id);
-              router.push(`/business/${item.id}`);
-            }}
+            onPress={() => router.push(`/business/${item.id}`)}
           />
         )}
         ListEmptyComponent={

@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { hasSeenIntro } from '../lib/firstRun';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import { NameGate } from '../components/NameGate';
 import { UpdateGate } from '../components/UpdateGate';
 import { StoreProvider } from '../lib/store';
@@ -48,42 +49,46 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
+        {/* Outside the store, so a store that throws still lands here. */}
+        <ErrorBoundary>
         <StoreProvider>
           <StatusBar style="dark" />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: colors.canvas },
-            }}
-          >
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="intro" options={{ animation: 'fade' }} />
-            <Stack.Screen name="(auth)/sign-in" />
-            <Stack.Screen name="(auth)/verify" />
-            {/* No gesture back: leaving without a name lands straight back
-                here, which reads as the app refusing to move on. */}
-            <Stack.Screen name="(auth)/welcome" options={{ gestureEnabled: false }} />
-            <Stack.Screen name="search" />
-            <Stack.Screen name="business/[id]" />
-            <Stack.Screen name="reviews/[id]" />
-            <Stack.Screen name="notifications" />
-            <Stack.Screen name="settings/profile" />
-            <Stack.Screen name="legal/[doc]" />
-            {/* Composing something is a task, not a place, so these slide up
-                and dismiss rather than joining the back stack as pages. */}
-            <Stack.Screen
-              name="owner/claim"
-              options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
-            />
-            <Stack.Screen
-              name="write-review/[id]"
-              options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
-            />
-          </Stack>
-          {/* These sit over everything, so a prompt is not tied to one screen. */}
-          <NameGate />
-          <UpdateGate />
+          <UpdateGate>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: colors.canvas },
+              }}
+            >
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="intro" options={{ animation: 'fade' }} />
+              <Stack.Screen name="(auth)/sign-in" />
+              <Stack.Screen name="(auth)/verify" />
+              {/* No gesture back: leaving without a name lands straight back
+                  here, which reads as the app refusing to move on. */}
+              <Stack.Screen name="(auth)/welcome" options={{ gestureEnabled: false }} />
+              <Stack.Screen name="search" />
+              <Stack.Screen name="business/[id]" />
+              <Stack.Screen name="reviews/[id]" />
+              <Stack.Screen name="notifications" />
+              <Stack.Screen name="settings/profile" />
+              <Stack.Screen name="legal/[doc]" />
+              {/* Composing something is a task, not a place, so these slide up
+                  and dismiss rather than joining the back stack as pages. */}
+              <Stack.Screen
+                name="owner/list"
+                options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+              />
+              <Stack.Screen
+                name="write-review/[id]"
+                options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+              />
+            </Stack>
+            {/* Sits over everything, so a prompt is not tied to one screen. */}
+            <NameGate />
+          </UpdateGate>
         </StoreProvider>
+        </ErrorBoundary>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

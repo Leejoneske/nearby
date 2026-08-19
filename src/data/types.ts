@@ -78,7 +78,7 @@ export type Business = {
   reviews: Review[];
   /** Set when the signed-in user owns this listing. */
   ownedByViewer?: boolean;
-  /** Verified via the claim flow. */
+  /** Confirmed by us as a real business at the address it gives. */
   verified?: boolean;
   /** Promotion shown in the "Today's offers" rail. */
   offer?: { label: string; detail: string };

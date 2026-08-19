@@ -18,7 +18,7 @@ import {
 export default function RecentScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
-  const { businesses, recentIds, isSaved, toggleSaved, markViewed } = useStore();
+  const { businesses, recentIds, isSaved, toggleSaved } = useStore();
   const now = useMemo(() => new Date(), []);
 
   const recent = useMemo(
@@ -51,10 +51,7 @@ export default function RecentScreen() {
             last={index === recent.length - 1}
             saved={isSaved(item.id)}
             onToggleSave={() => toggleSaved(item.id)}
-            onPress={() => {
-              markViewed(item.id);
-              router.push(`/business/${item.id}`);
-            }}
+            onPress={() => router.push(`/business/${item.id}`)}
           />
         )}
         ListEmptyComponent={

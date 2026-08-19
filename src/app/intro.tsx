@@ -44,7 +44,7 @@ const SLIDES: Slide[] = [
   {
     icon: 'storefront',
     title: 'Own a business? List it free',
-    body: 'Claim your listing, keep the details right, reply to reviews, and see how many people are looking for you.',
+    body: 'List your business free, keep the details right, reply to reviews, and see how many people are looking for you.',
   },
 ];
 

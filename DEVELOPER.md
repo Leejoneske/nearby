@@ -319,6 +319,19 @@ things in, if the numbers ever say so: raise the Supabase instance size,
 then cache the nearby response at the edge with a short TTL, then Redis —
 and only with a measurement in hand saying which one is the problem.
 
+## A pin is a real fix or it is nothing
+
+`useOrigin` answers "where is this person looking from" and is allowed to
+fall back to the centre of town, because a directory that shows nothing
+because it could not place you is worse than one that measures from the city.
+
+`capturePin` in `src/lib/pinLocation.ts` is the opposite and must stay that
+way. It returns a fix or a reason, never a guess. A listing placed at the city
+centre because the fix timed out is worse than a listing with no pin: it sends
+people to the wrong street and it looks deliberate. When there is no pin the
+form says so, in as many words, and the listing goes in at the centre of the
+area the owner typed.
+
 ## Numbers must be measured
 
 The owner dashboard once read a `insights` field that nothing ever wrote, so
@@ -329,6 +342,38 @@ directions.
 If a number cannot be measured yet, show nothing and say so — never a
 plausible-looking figure. "Nobody has looked at this listing yet" is a real
 answer; a fabricated view count is not.
+
+## The landing page ships with the app, not after it
+
+`landing/` is a sales pitch for whatever the app currently does, so a change
+to what the app does is not finished until the page says the same thing. It
+went wrong exactly the way you would expect: claiming was taken out of the
+app and the page went on offering "Claim your listing" to anybody reading it,
+which is a promise nobody could keep.
+
+Before calling a feature change done, read the page for anything it now
+contradicts:
+
+- the copy in `landing/index.html`, including the footer link list
+- the screenshots in `landing/img/`, which are of real screens and go stale
+  when those screens change
+- the legal pages in `src/data/legal.ts`, which describe the app that exists
+
+This is not a nice-to-have. Everything else in this file is about the app
+telling the truth to the person using it; the page is the same app talking to
+somebody who has not installed it yet.
+
+## The claim flow was removed, and should not come back
+
+The directory used to let anybody browsing it take over a listing on one tap.
+Nothing checked that the business was theirs, and there was nothing that
+could have: the app has no way to tell whether the person tapping owns the
+shop.
+
+A listing is now worth something precisely because the person who runs the
+place put it there. If ownership transfer is ever needed, it is a support
+process with evidence behind it, not a button on a page a stranger is
+reading.
 
 ## The web build is not the app
 
@@ -342,6 +387,60 @@ time without disagreeing with the browser at page load. That disagreement
 breaks hydration, and the visible symptom is a stale copy of the UI stacked on
 top of the live one — which is exactly the bug that cost an afternoon once
 already.
+
+## Errors have to leave the device
+
+A `console.warn` on a phone we do not have is not a bug report, and "it does
+not work" was the whole of what we used to get. `reportError(screen, error)`
+in `src/lib/errorReporting.ts` sends the message to `client_errors`, where the
+console groups it.
+
+Three rules it keeps, and all three matter:
+
+- **It never throws.** Something that reports errors and then fails loudly is
+  worse than no reporting.
+- **It never blocks.** Every call is fire and forget.
+- **It sends a message, not a stack.** A stack from a minified bundle says
+  nothing useful and is the field most likely to carry something private that
+  was passed into an error.
+
+The grouping is the point. `fingerprint()` strips ids, numbers and quoted
+values out of the message before hashing it, so "no row with id 4f2c…" is one
+fault rather than five hundred, and the console can show that forty people hit
+it rather than that something happened forty times. It is pure and lives in
+`src/lib/errors.ts` — separate from the reporting module, because importing
+that builds a database client and a test of a hash function should not need a
+Supabase project.
+
+Repeats of the same fingerprint are dropped for five minutes. A render loop
+throws thousands of times a second, and without that the app would spend the
+evening posting the same row.
+
+## The console answers "what is happening", not "what exists"
+
+Counting rows was the whole of the old overview: seven listings, four people.
+That is a fact about the database. What somebody opening a moderation console
+wants is whether anybody is using it, whether anything is broken, and what
+needs them today — so the page opens with the three things waiting on a human,
+then use, then the directory, then health.
+
+Two rules carried over from the app and worth restating here:
+
+- **Nothing is estimated.** Every figure comes from `admin_overview()` or
+  `admin_daily()`. A plausible-looking number on a console is worse than no
+  number, because somebody acts on it. "People who did something" counts
+  accounts that opened a listing, because that is what is recorded; there is
+  no "opened the app" figure and inventing one would be a measurement that is
+  not.
+- **Zero is shown, not hidden.** "No listings waiting" is information. A tile
+  that disappears is ambiguous between nothing to do and a page that failed.
+
+`admin_activity()` is a union across six tables rather than an events table of
+its own. Nothing new is written, so there is no second copy of the truth to
+drift out of step, and dropping a source is deleting a branch rather than
+migrating rows. It reads and does not act: acting on a listing belongs on
+Listings, where the listing and its context are, and a feed with buttons in it
+is a place to do things by accident.
 
 ## The console is not the security boundary
 
