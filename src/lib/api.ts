@@ -41,6 +41,7 @@ type BusinessRow = {
   photos: string[];
   verified: boolean;
   offer: { label: string; detail: string } | null;
+  status?: 'live' | 'pending' | 'suspended';
   rating: number | string;
   review_count: number;
   /** Present on the nearby RPC, absent on a plain select. */
@@ -125,6 +126,7 @@ export function toBusiness(
     reviews: extras.reviews ?? [],
     ownedByViewer: !!row.owner_id && row.owner_id === extras.viewerId,
     verified: row.verified,
+    status: row.status,
     offer: row.offer ?? undefined,
   };
 }
@@ -406,21 +408,97 @@ export async function createBusinessRemote(input: {
  * Requires an account: a report names its reporter, and an anonymous flag is
  * both unactionable and trivially spammable.
  */
+/**
+ * Flags a listing or a review, with or without an account.
+ *
+ * Through a function rather than an insert, for two reasons. It pins the
+ * reporter to the caller, so a signed-in report cannot be attributed to
+ * somebody else and an anonymous one cannot be attributed to anybody. And it
+ * refuses a second identical open report, so tapping the button twice files
+ * one thing rather than two.
+ */
 export async function createReport(input: {
   targetType: 'business' | 'review';
   targetId: string;
-  reporterId: string;
   reason: string;
   detail?: string;
 }) {
-  const { error } = await supabase.from('reports').insert({
-    target_type: input.targetType,
-    target_id: input.targetId,
-    reporter_id: input.reporterId,
-    reason: input.reason,
-    detail: input.detail ?? '',
+  const { error } = await supabase.rpc('report_target', {
+    in_target_type: input.targetType,
+    in_target_id: input.targetId,
+    in_reason: input.reason,
+    in_detail: input.detail ?? '',
   });
   if (error) throw error;
+}
+
+/* ------------------------------------------------------------ accounts --- */
+
+export type AccountState = { suspended: boolean; reason: string | null };
+
+/**
+ * Whether this account is still allowed in.
+ *
+ * A token issued before a suspension keeps working until it expires, so the
+ * app has to ask rather than assume. It is a function call rather than a
+ * column read because `profiles` is readable only by its owner and this has
+ * to answer in the moment where a session exists and the profile has not
+ * loaded yet.
+ */
+export async function fetchAccountState(): Promise<AccountState> {
+  const { data, error } = await supabase.rpc('my_account_state');
+  if (error) throw error;
+  const row = (data ?? {}) as Partial<AccountState>;
+  return { suspended: row.suspended === true, reason: row.reason ?? null };
+}
+
+/**
+ * Deletes the account and everything of it.
+ *
+ * Storage first, because only this client holds a session the storage
+ * policies will accept — after the auth row is gone there is nobody left who
+ * may remove the files. A failure there is logged and does not stop the
+ * deletion: a leftover image is a smaller wrong than an account somebody
+ * asked to be rid of and still has.
+ */
+export async function deleteMyAccount(userId: string): Promise<void> {
+  for (const bucket of ['avatars', 'business-photos'] as const) {
+    try {
+      const { data } = await supabase.storage.from(bucket).list(userId);
+      const paths = (data ?? []).map((file) => `${userId}/${file.name}`);
+      if (paths.length > 0) await supabase.storage.from(bucket).remove(paths);
+    } catch (e) {
+      console.warn(`[account] could not clear ${bucket}`, e);
+    }
+  }
+
+  const { error } = await supabase.rpc('delete_my_account');
+  if (error) throw error;
+}
+
+/**
+ * Tells the database which device this is.
+ *
+ * The one signal that catches a person running a ring of accounts, because
+ * that is one phone with many sign-ins. The position is rounded to two
+ * decimal places before it is sent — about a kilometre, which is enough to
+ * see that ten accounts are in the same place and not enough to see which
+ * building anybody is in.
+ */
+export async function recordDevice(input: {
+  fingerprint: string;
+  platform: string;
+  lat?: number;
+  lng?: number;
+}): Promise<void> {
+  const { error } = await supabase.rpc('record_device', {
+    in_fingerprint: input.fingerprint,
+    in_platform: input.platform,
+    in_lat: input.lat ?? null,
+    in_lng: input.lng ?? null,
+    in_country: '',
+  });
+  if (error) console.warn('[device] could not record this device', error);
 }
 
 /**

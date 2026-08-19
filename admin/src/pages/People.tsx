@@ -1,60 +1,94 @@
 /**
- * Who has an account, and what they have done.
+ * Who has an account, what they have done, and whether to trust it.
  *
- * Read-only on purpose. Suspending a person is a bigger decision than
- * suspending a listing — it touches their reviews, their saved places and
- * anything they manage — and shipping the button before the rules exist is
- * how somebody gets removed by accident. Listings are the lever that exists
- * today.
+ * The queue is the point of the ordering: flagged and not yet suspended
+ * first, worst score at the top. What somebody opens this page to find is the
+ * account nobody has looked at yet, not an alphabetical census.
  *
- * Reading, though, is most of what this is for. "This account was reported"
- * and "this is the one hitting the error" are both questions the table alone
- * could not answer, so a row opens into everything that account has written,
- * listed and run into.
+ * Suspending is a real lever now and it is a heavy one — no sign in, no
+ * writes, listings and reviews out of the directory, nothing sent — so it
+ * asks for a reason, and the reason is shown to the person it happens to. A
+ * suspension nobody can understand is one nobody can appeal.
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { fetchPeople, fetchPerson, type AdminPerson, type PersonDetail } from '../api';
+import {
+  clearSignals,
+  fetchPeople,
+  fetchPerson,
+  restoreAccount,
+  suspendAccount,
+  type AccountState,
+  type AdminPerson,
+  type PersonDetail,
+} from '../api';
 import { Banner, Empty, StatusPill, ago } from '../components';
+
+const STATES: { id: AccountState; label: string }[] = [
+  { id: 'all', label: 'Everyone' },
+  { id: 'flagged', label: 'Flagged' },
+  { id: 'suspended', label: 'Suspended' },
+  { id: 'active', label: 'Active' },
+];
 
 export function People() {
   const [rows, setRows] = useState<AdminPerson[]>([]);
   const [query, setQuery] = useState('');
+  const [state, setState] = useState<AccountState>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
 
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const data = await fetchPeople();
-        if (alive) setRows(data);
-      } catch (e) {
-        console.warn('[people]', e);
-        if (alive) setError('We could not load the accounts.');
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setRows(await fetchPeople({ query, state }));
+      setError(null);
+    } catch (e) {
+      console.warn('[people]', e);
+      setError('We could not load the accounts.');
+    } finally {
+      setLoading(false);
+    }
+  }, [query, state]);
 
-  const term = query.trim().toLowerCase();
-  const shown = term
-    ? rows.filter((r) =>
-        `${r.name ?? ''} ${r.email ?? ''} ${r.area ?? ''}`.toLowerCase().includes(term),
-      )
-    : rows;
+  useEffect(() => {
+    const timer = setTimeout(() => void load(), 200);
+    return () => clearTimeout(timer);
+  }, [load]);
+
+  const act = async (id: string, run: () => Promise<void>) => {
+    setBusyId(id);
+    setError(null);
+    try {
+      await run();
+      await load();
+    } catch (e) {
+      console.warn('[people] the change was refused', e);
+      setError(e instanceof Error ? e.message : 'That change was refused.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const suspend = (row: AdminPerson) => {
+    const reason = window.prompt(
+      `Why is ${row.name || 'this account'} being suspended?\n\n` +
+        'They are shown this, so write it to them. Everything they have made is ' +
+        'hidden while it is in place and comes back untouched if you restore it.',
+      row.signals ?? '',
+    );
+    if (reason === null) return;
+    void act(row.id, () => suspendAccount(row.id, reason));
+  };
 
   return (
     <>
       <div className="page-head">
         <div>
           <h1>People</h1>
-          <p>Everyone with an account.</p>
+          <p>Everyone with an account. Flagged ones come first.</p>
         </div>
       </div>
 
@@ -69,36 +103,111 @@ export function People() {
           onChange={(e) => setQuery(e.target.value)}
           aria-label="Search people"
         />
+        <div className="chips">
+          {STATES.map((option) => (
+            <button
+              key={option.id}
+              className={state === option.id ? 'chip chip--on' : 'chip'}
+              aria-pressed={state === option.id}
+              onClick={() => setState(option.id)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="table-wrap">
-        {shown.length === 0 ? (
+        {rows.length === 0 ? (
           <Empty
-            title={loading ? 'Loading…' : term ? 'Nobody matches' : 'No accounts yet'}
-            body={term ? 'Try a different search.' : 'People appear here as they sign up.'}
+            title={loading ? 'Loading…' : query || state !== 'all' ? 'Nobody matches' : 'No accounts yet'}
+            body={
+              query || state !== 'all'
+                ? 'Try a different search, or clear the filter.'
+                : 'People appear here as they sign up.'
+            }
           />
         ) : (
           <table>
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Area</th>
-                <th className="nowrap">Joined</th>
+                <th>Account</th>
+                <th>State</th>
+                <th className="num nowrap">Listings</th>
+                <th className="num nowrap">Reviews</th>
+                <th className="nowrap">Last seen</th>
                 <th />
               </tr>
             </thead>
             <tbody>
-              {shown.map((row) => (
-                <tr key={row.id}>
-                  <td className="cell-title">{row.name || '—'}</td>
-                  <td className="cell-sub">{row.email || '—'}</td>
-                  <td className="cell-sub">{row.area || '—'}</td>
-                  <td className="nowrap cell-sub">{ago(row.created_at)}</td>
+              {rows.map((row) => (
+                <tr key={row.id} className={row.suspended_at ? 'row-muted' : undefined}>
                   <td>
-                    <button className="btn small" onClick={() => setOpenId(row.id)}>
-                      Open
-                    </button>
+                    <div className="cell-title">{row.name || 'Unnamed'}</div>
+                    <div className="cell-sub">
+                      {row.email || 'No email'}
+                      {row.area ? ` · ${row.area}` : ''}
+                      {row.devices > 1 ? ` · ${row.devices} devices` : ''}
+                    </div>
+                    {row.signals ? <div className="cell-flag">{row.signals}</div> : null}
+                  </td>
+                  <td className="nowrap">
+                    {row.is_admin ? <span className="pill verified">Admin</span> : null}
+                    {row.suspended_at ? (
+                      <span className="pill suspended">Suspended</span>
+                    ) : row.fraud_score > 0 ? (
+                      <span className="pill open">Flagged {row.fraud_score}</span>
+                    ) : (
+                      <span className="pill live">Active</span>
+                    )}
+                    {row.reports_against > 0 ? (
+                      <span className="pill quiet">{row.reports_against} reported</span>
+                    ) : null}
+                  </td>
+                  <td className="num nowrap">{row.listings || '—'}</td>
+                  <td className="num nowrap">{row.reviews || '—'}</td>
+                  <td className="nowrap cell-sub">
+                    {row.last_seen ? ago(row.last_seen) : 'Never'}
+                  </td>
+                  <td>
+                    <div className="row-actions">
+                      <button className="btn small" onClick={() => setOpenId(row.id)}>
+                        Open
+                      </button>
+                      {row.fraud_score > 0 && !row.suspended_at ? (
+                        <button
+                          className="btn small"
+                          disabled={busyId === row.id}
+                          onClick={() => {
+                            const note = window.prompt(
+                              `Clear the flags on ${row.name || 'this account'}? Say why, for the log.`,
+                              '',
+                            );
+                            if (note === null) return;
+                            void act(row.id, () => clearSignals(row.id, note));
+                          }}
+                        >
+                          Clear flags
+                        </button>
+                      ) : null}
+                      {row.is_admin ? null : row.suspended_at ? (
+                        <button
+                          className="btn small"
+                          disabled={busyId === row.id}
+                          onClick={() => void act(row.id, () => restoreAccount(row.id))}
+                        >
+                          Restore
+                        </button>
+                      ) : (
+                        <button
+                          className="btn small danger"
+                          disabled={busyId === row.id}
+                          onClick={() => suspend(row)}
+                        >
+                          Suspend
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

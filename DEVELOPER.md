@@ -206,20 +206,28 @@ while it checks, and leaves `verified` false. Claiming is a request to manage
 a listing, not proof it is yours, and until there is something that reviews
 those requests, `claimed_at`/`claimed_by` is the record that it happened.
 
-## The map has two implementations, and one is not a failure
+## The map needs no key, and that is the point
 
-Android's Maps SDK needs an API key. Given a missing or wrong one it does not
-raise an error — it draws a blank grey rectangle with a watermark in the
-corner, which looks precisely like a broken app. A `REPLACE_WITH_...`
-placeholder sat in `app.json` doing exactly that.
+Android's Maps SDK needs an API key tied to a billing account. Given a missing
+or refused one it does not raise an error — it draws a blank grey rectangle
+with a watermark in the corner, which looks precisely like a broken app. That
+shipped once, from a `REPLACE_WITH_...` placeholder sitting in `app.json`.
 
-The key now comes from `GOOGLE_MAPS_API_KEY` through `app.config.js`, and
-`hasRealMap()` decides what to render. With no key, and on web, the app draws
-`SchematicMap` instead: real projection, real pin positions, invented roads.
-A build without the key has a worse map, not a broken one.
+The map is now MapLibre rendering OpenFreeMap's vector tiles, from
+OpenStreetMap data. No key, no account, no card, no request quota. The style
+is `liberty`, which keeps road classes and place labels legible at the zoom a
+directory actually uses — street level in one neighbourhood.
 
-If you add a key, restrict it to the package name and signing certificate.
-Anyone can pull an unrestricted key back out of the APK.
+Three consequences worth knowing:
+
+- **It needs a native build.** MapLibre is native code, so Expo Go cannot run
+  it. CI already prebuilds, so nothing changed there.
+- **The attribution button stays.** OpenStreetMap's licence requires credit
+  and MapLibre's button is how it is given. It is not ours to switch off.
+- **`SchematicMap` is still the fallback**, now for a tile server that cannot
+  be reached rather than for a missing key. Real projection, real pin
+  positions, invented roads. A map that could not load must never be a blank
+  rectangle, because that is the failure this whole thing replaced.
 
 ## Directions stay in the app
 
@@ -442,6 +450,73 @@ migrating rows. It reads and does not act: acting on a listing belongs on
 Listings, where the listing and its context are, and a feed with buttons in it
 is a place to do things by accident.
 
+## Suspension means one thing everywhere
+
+A half suspension — cannot post, but the listings stay up and the reviews
+still count towards a rating — is the worst of both: the person is punished
+and the damage stays on the site. So it is enforced in four places, all in the
+database, and `admin_suspend_account` does all four:
+
+1. **Sign in.** `auth.users.banned_until` is what Supabase itself checks
+   before issuing a token. It is the only one of the four that stops somebody
+   at the door, and nothing in this schema could do it alone.
+2. **Writes.** Every insert and update policy requires a caller who is not
+   suspended, so a token issued *before* the suspension is useless.
+3. **Reads about them.** Their listings and reviews leave the directory, and
+   the ratings they contributed are recomputed without them.
+4. **Anything sent to them.** `notify` returns without writing.
+
+Restoring reverses all four by clearing two columns, which is the whole reason
+for doing it this way rather than deleting anything. A restored account finds
+its work exactly where it left it.
+
+The app still has to be told, because a token already issued keeps working
+until it expires: `my_account_state()` is asked once per sign-in, and a yes
+ends the session there rather than letting somebody wander a half-working app
+finding every action refused.
+
+## Fraud signals are rules, not a model
+
+`assess_account` is a set of named rules, each of which is a thing a person
+could check by hand, and each of which records in words what it saw. That
+transparency is the design, not a limitation of it. An opaque score that
+suspends somebody's business listing is a liability: the person cannot be told
+what they did, and nobody internally can tell a false positive from a real
+one.
+
+The weights are coarse on purpose. Pretending to two decimal places of
+certainty about somebody's honesty would be a lie told in arithmetic.
+
+**No single rule reaches the auto-suspend bar.** Being on a shared device is
+not fraud; neither is signing up and reviewing the cafe you are sitting in.
+Seven takes at least two independent rules agreeing, usually three. Everything
+below the bar waits in a queue for a person, which is where most of these
+belong. If you add a rule, keep that property — the moment one signal can
+suspend an account on its own, this stops being a queue-ordering device and
+becomes a way to remove real businesses by accident.
+
+The device fingerprint is a random value the app generates once and keeps,
+hashed with the coarse device model. Deliberately not an advertising id or a
+hardware serial: it identifies "the phone Nearby was installed on" and nothing
+else, and clearing the app's data resets it. That is a real limitation and the
+right trade.
+
+## Deleting an account has to actually delete
+
+`delete_my_account` removes the profile, the reviews, the listings and their
+reviews, the saves, the notifications, the reports filed, the recorded events
+and the auth row. A right to erasure that leaves the data behind is not one.
+
+Two things worth knowing before changing it:
+
+- **Storage goes first, from the client.** Only a live session satisfies the
+  storage policies, and after the auth row is gone there is nobody left who
+  may remove the files.
+- **Listings go too, and the app says so before asking twice.** There is no
+  claim flow any more, so a listing whose owner is gone can never be managed
+  by anybody — leaving it would leave an unmaintainable entry naming a real
+  business.
+
 ## The console is not the security boundary
 
 `admin/` is a small Vite app served at `/admin`, built into the landing site
@@ -464,6 +539,23 @@ Three consequences worth keeping:
 - **Suspending is a status, not a delete.** `businesses.status` drives
   visibility through the SELECT policy, which is why `businesses_nearby()`
   needed no change: it runs as the caller, so it inherits the policy.
+
+## Reporting needs no account
+
+The people most likely to notice that a listing is a fake, a duplicate, or a
+business that closed two years ago are the people walking past it, and most of
+them are not signed in. Requiring an account meant refusing the reports we
+most needed, so `report_target` takes an anonymous one.
+
+It is a function rather than an open INSERT policy, because an open insert on
+`reports` is a queue anybody can fill. It pins the reporter to the caller — a
+signed-in report cannot be attributed to somebody else, an anonymous one
+cannot be attributed to anybody — and refuses a second identical open report,
+so tapping twice files one thing.
+
+Anonymous reports deliberately do not count towards the `many_reporters` fraud
+signal. "Several anonymous reports" is one person tapping a button until
+proven otherwise.
 
 ## Reporting has to exist for moderation to mean anything
 

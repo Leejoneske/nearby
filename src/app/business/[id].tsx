@@ -19,21 +19,25 @@ import {
   formatReviewCount,
 } from '../../lib/format';
 import { DAY_NAMES, formatDayRange, openState } from '../../lib/hours';
+import { stateBadge } from '../../lib/listingState';
 import { shareBusiness } from '../../lib/sharing';
 import { callPhone, openDirections, openWebsite } from '../../lib/openLink';
-import { NeedsAccountError, useStore } from '../../lib/store';
+import { useStore } from '../../lib/store';
 import { absoluteFill, colors, radii, shadows, spacing, typography } from '../../theme/tokens';
 
 export default function BusinessScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getBusiness, isSaved, toggleSaved, loadDetail, recordEvent, reportBusiness, markViewed } =
-    useStore();
+  const {
+    getBusiness, isSaved, toggleSaved, loadDetail, recordEvent, reportBusiness,
+    markViewed, session,
+  } = useStore();
   const [reporting, setReporting] = useState(false);
 
   const business = getBusiness(id);
   const now = useMemo(() => new Date(), []);
+  const badge = stateBadge(business?.status);
 
   // Lists carry no reviews, so the page asks for them as it opens.
   useEffect(() => {
@@ -169,6 +173,18 @@ export default function BusinessScreen() {
             </View>
 
             <Text style={styles.name}>{business.name}</Text>
+
+            {/*
+              * Nobody but the owner can reach a listing in either of these
+              * states, so this only ever appears for them — and it is the
+              * answer to the question they have straight after submitting.
+              */}
+            {badge ? (
+              <View style={styles.stateNotice}>
+                <Ionicons name={badge.icon as never} size={17} color={colors.accentPressed} />
+                <Text style={styles.stateNoticeText}>{badge.note}</Text>
+              </View>
+            ) : null}
             <Text style={styles.tagline}>{business.tagline}</Text>
 
             <View style={styles.ratingRow}>
@@ -406,20 +422,11 @@ export default function BusinessScreen() {
 
       <ReportSheet
         visible={reporting}
+        signedIn={session.status === 'signedIn'}
         subject={business.name}
         onClose={() => setReporting(false)}
         onSubmit={async (reason) => {
-          try {
-            await reportBusiness(business.id, reason);
-          } catch (e) {
-            // Being sent to sign in is not a failure to show an error about;
-            // the sign-in screen is already on its way.
-            if (e instanceof NeedsAccountError) {
-              setReporting(false);
-              return;
-            }
-            throw e;
-          }
+          await reportBusiness(business.id, reason);
         }}
       />
 
@@ -548,6 +555,15 @@ const styles = StyleSheet.create({
 
   titleBlock: { paddingHorizontal: spacing.screen, gap: spacing.sm },
   badgeRow: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
+  stateNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    backgroundColor: colors.accentSoft,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+  },
+  stateNoticeText: { ...typography.meta, color: colors.accentPressed, flex: 1 },
   name: { ...typography.display, fontSize: 28, lineHeight: 34, color: colors.textPrimary },
   tagline: { ...typography.body, color: colors.textSecondary, marginTop: -spacing.xs },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },

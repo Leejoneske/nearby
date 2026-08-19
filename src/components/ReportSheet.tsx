@@ -8,6 +8,10 @@
  * longer to triage than it takes to write, and a person deciding between five
  * named problems gives a far more useful answer than one staring at "tell us
  * what is wrong".
+ *
+ * No account needed, and the sheet says so. The people most likely to notice
+ * that a listing is a fake or a business that closed two years ago are the
+ * people walking past it, and most of them are not signed in.
  */
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
@@ -29,12 +33,15 @@ export const REASONS = [
 export function ReportSheet({
   visible,
   subject,
+  signedIn,
   onClose,
   onSubmit,
 }: {
   visible: boolean;
   /** What is being reported, for the title. */
   subject: string;
+  /** Only changes what the sheet says. Either way the report is sent. */
+  signedIn?: boolean;
   onClose: () => void;
   onSubmit: (reason: string) => Promise<void>;
 }) {
@@ -86,6 +93,11 @@ export function ReportSheet({
           <>
             <Text style={styles.title}>Report {subject}</Text>
             <Text style={styles.body}>What is wrong with it?</Text>
+            <Text style={styles.privacy}>
+              {signedIn
+                ? 'Sent with your account, so we can come back to you if we need to.'
+                : 'Sent anonymously. Nothing about you goes with it, and you do not need an account.'}
+            </Text>
 
             <ScrollView style={styles.list}>
               {REASONS.map((reason, index) => (
@@ -125,6 +137,12 @@ export function ReportSheet({
 }
 
 const styles = StyleSheet.create({
+  privacy: {
+    ...typography.caption,
+    color: colors.textTertiary,
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+  },
   backdrop: { flex: 1, backgroundColor: colors.overlay },
   sheet: {
     backgroundColor: colors.surface,

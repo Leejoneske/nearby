@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -25,7 +26,7 @@ import { colors, radii, spacing, typography } from '../../theme/tokens';
 export default function EditProfileScreen() {
   const router = useRouter();
   const insets = useScreenInsets();
-  const { viewer, updateViewer, session, userId } = useStore();
+  const { viewer, updateViewer, session, userId, ownedBusinesses, deleteAccount } = useStore();
 
   const [name, setName] = useState(viewer.name === 'Guest' ? '' : viewer.name);
   const [area, setArea] = useState(viewer.area);
@@ -34,6 +35,7 @@ export default function EditProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const nameError =
     cleanDisplayName(name).length < 2 ? 'Tell us what to call you' : undefined;
@@ -94,6 +96,57 @@ export default function EditProfileScreen() {
       setError(messageFor(e));
     } finally {
       setSaving(false);
+    }
+  };
+
+  /*
+   * Deleting an account, with the consequences said out loud first.
+   *
+   * Two prompts rather than one. This removes reviews other people can no
+   * longer read and listings that name real businesses, none of which can be
+   * recovered and none of which can be handed to anybody else — there is no
+   * claim flow any more. A single "are you sure" is not enough warning for
+   * something with no undo.
+   */
+  const confirmDelete = () => {
+    const listings = ownedBusinesses.length;
+    const detail = [
+      'Your name, email and picture go, along with every review you have written.',
+      listings > 0
+        ? `Your ${listings} ${listings === 1 ? 'listing' : 'listings'} will be removed too, with the reviews on them. Nobody else can take them over.`
+        : null,
+      'None of it can be brought back.',
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+
+    Alert.alert('Delete your account?', detail, [
+      { text: 'Keep my account', style: 'cancel' },
+      {
+        text: 'Continue',
+        style: 'destructive',
+        onPress: () =>
+          Alert.alert(
+            'Last chance',
+            'This cannot be undone. Delete everything now?',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Delete everything', style: 'destructive', onPress: () => void remove() },
+            ],
+          ),
+      },
+    ]);
+  };
+
+  const remove = async () => {
+    setDeleting(true);
+    setError(null);
+    try {
+      await deleteAccount();
+      router.replace('/(tabs)');
+    } catch (e) {
+      setError(messageFor(e, 'We could not delete your account just now. Try again.'));
+      setDeleting(false);
     }
   };
 
@@ -161,6 +214,23 @@ export default function EditProfileScreen() {
         </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        {session.status === 'signedIn' ? (
+          <View style={styles.danger}>
+            <Text style={styles.dangerTitle}>Delete your account</Text>
+            <Text style={styles.dangerBody}>
+              Removes your account and everything on it, for good. If you only want
+              a break, signing out leaves it all where it is.
+            </Text>
+            <Button
+              label="Delete my account"
+              variant="danger"
+              size="md"
+              loading={deleting}
+              onPress={confirmDelete}
+            />
+          </View>
+        ) : null}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
@@ -216,6 +286,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.lg,
   },
+
+  danger: {
+    marginTop: spacing.xxxl,
+    paddingTop: spacing.xl,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    gap: spacing.sm,
+  },
+  dangerTitle: { ...typography.sectionTitle, color: colors.textPrimary },
+  dangerBody: { ...typography.meta, color: colors.textSecondary, marginBottom: spacing.xs },
 
   footer: {
     position: 'absolute',

@@ -1,23 +1,42 @@
 /**
- * Native map. Google Maps on Android, Apple Maps on iOS, via react-native-maps.
+ * The map, drawn by MapLibre against OpenFreeMap's tiles.
  *
- * The web build resolves MapCanvas.web.tsx instead — react-native-maps has no
- * web implementation, and a business directory has to render something on the
- * web preview rather than crash.
+ * There is no API key and no billing account behind this, which is the whole
+ * reason for it. Google's Maps SDK needs a key tied to a card, and a card
+ * that is declined leaves the app rendering a blank grey rectangle with a
+ * watermark — an outcome indistinguishable from a broken app, and one that
+ * already shipped once.
  *
- * Android also falls back to the drawn map when the build has no Maps SDK
- * key. Google's view does not report that as an error; it just renders an
- * empty grey rectangle, so without this check a missing key looks exactly
- * like a broken app.
+ * OpenFreeMap serves the vector tiles and the style, free and without a key,
+ * from OpenStreetMap data. MapLibre is the renderer. The trade is that this
+ * needs a native build rather than Expo Go, which the project already does.
+ *
+ * The web build resolves MapCanvas.web.tsx instead: this library is native
+ * only, and a business directory has to render something in a browser rather
+ * than crash.
  */
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, PROVIDER_DEFAULT, type Region } from 'react-native-maps';
+import { Camera, Map, Marker, UserLocation } from '@maplibre/maplibre-react-native';
+import { useState } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { hasRealMap } from '../lib/mapsKey';
 import { colors, radii, shadows, tones, type ToneName } from '../theme/tokens';
-import { MAP_STYLE } from '../theme/mapStyle';
 import { SchematicMap } from './SchematicMap';
+
+/**
+ * OpenFreeMap's Liberty style. No key, no account, no request quota.
+ *
+ * `liberty` rather than `bright` or `positron`: it keeps road classes and
+ * place labels legible at the zoom a directory actually uses, which is street
+ * level in one neighbourhood.
+ */
+const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
+
+/** Roughly the zoom that shows a neighbourhood, from the old region delta. */
+function zoomFor(latitudeDelta: number): number {
+  if (!latitudeDelta || latitudeDelta <= 0) return 13;
+  return Math.min(18, Math.max(3, Math.log2(360 / latitudeDelta)));
+}
 
 export type MapMarker = {
   id: string;
@@ -30,6 +49,14 @@ export type MapMarker = {
   selected?: boolean;
 };
 
+/** Kept in the shape the screens already pass, so nothing else had to change. */
+export type Region = {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
+};
+
 type Props = {
   region: Region;
   markers: MapMarker[];
@@ -38,7 +65,19 @@ type Props = {
 };
 
 export function MapCanvas({ region, markers, onSelectMarker, style }: Props) {
-  if (!hasRealMap()) {
+  /*
+   * A tile server that cannot be reached must not leave a blank rectangle.
+   *
+   * That is the exact failure this replaced, so it is worth not repeating for
+   * a different reason: with no network, or with OpenFreeMap having a bad
+   * afternoon, the drawn map takes over. It shows the same pins in the same
+   * places and says what it is.
+   */
+  const where = `${region.latitude},${region.longitude}`;
+  const [failedAt, setFailedAt] = useState<string | null>(null);
+  const failed = failedAt === where;
+
+  if (failed) {
     return (
       <SchematicMap
         region={region}
@@ -50,52 +89,64 @@ export function MapCanvas({ region, markers, onSelectMarker, style }: Props) {
   }
 
   return (
-    <MapView
-      provider={PROVIDER_DEFAULT}
+    <Map
       style={[StyleSheet.absoluteFill, style]}
-      initialRegion={region}
-      customMapStyle={MAP_STYLE}
-      showsUserLocation
-      showsMyLocationButton={false}
-      showsCompass={false}
-      toolbarEnabled={false}
+      mapStyle={STYLE_URL}
+      // OpenStreetMap's licence requires attribution, and MapLibre's button
+      // is how it is given. It is not ours to switch off.
+      attribution
+      logo={false}
+      compass={false}
+      onDidFailLoadingMap={() => setFailedAt(where)}
     >
+      <Camera
+        initialViewState={{
+          center: [region.longitude, region.latitude],
+          zoom: zoomFor(region.latitudeDelta),
+        }}
+      />
+      <UserLocation />
+
       {markers.map((marker) => (
         <Marker
           key={marker.id}
-          coordinate={{ latitude: marker.lat, longitude: marker.lng }}
+          id={marker.id}
+          lngLat={[marker.lng, marker.lat]}
+          anchor="bottom"
           onPress={() => onSelectMarker?.(marker.id)}
-          tracksViewChanges={false}
         >
           {/*
             * A selected pin goes near-black rather than keeping its colour:
             * "which one am I looking at" has to beat "what kind is it".
             */}
-          <View
-            style={[
-              styles.pin,
-              { backgroundColor: tones[marker.tone].fg },
-              marker.selected && styles.pinSelected,
-            ]}
-          >
-            <Ionicons
-              name={marker.icon as never}
-              size={marker.selected ? 18 : 15}
-              color={colors.textOnAccent}
-            />
+          <View style={styles.marker}>
+            <View
+              style={[
+                styles.pin,
+                { backgroundColor: tones[marker.tone].fg },
+                marker.selected && styles.pinSelected,
+              ]}
+            >
+              <Ionicons
+                name={marker.icon as never}
+                size={marker.selected ? 18 : 15}
+                color={colors.textOnAccent}
+              />
+            </View>
+            {marker.selected ? (
+              <Text style={styles.pinLabel} numberOfLines={1}>
+                {marker.label}
+              </Text>
+            ) : null}
           </View>
-          {marker.selected ? (
-            <Text style={styles.pinLabel} numberOfLines={1}>
-              {marker.label}
-            </Text>
-          ) : null}
         </Marker>
       ))}
-    </MapView>
+    </Map>
   );
 }
 
 const styles = StyleSheet.create({
+  marker: { alignItems: 'center' },
   pin: {
     width: 34,
     height: 34,
@@ -117,5 +168,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.textPrimary,
     textAlign: 'center',
+    maxWidth: 120,
   },
 });

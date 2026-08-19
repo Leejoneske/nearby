@@ -80,6 +80,15 @@ export type Business = {
   ownedByViewer?: boolean;
   /** Confirmed by us as a real business at the address it gives. */
   verified?: boolean;
+  /**
+   * Where it is in its life.
+   *
+   * Only ever anything but `live` for a listing the viewer owns: the policy
+   * shows nobody else a pending or suspended row. Carried so the owner's own
+   * copy can say which it is, rather than sitting in the directory looking
+   * published when it is not.
+   */
+  status?: 'live' | 'pending' | 'suspended';
   /** Promotion shown in the "Today's offers" rail. */
   offer?: { label: string; detail: string };
 };

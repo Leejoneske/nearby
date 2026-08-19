@@ -939,3 +939,15 @@ tbody tr:hover {
   border-radius: 10px;
   overflow: hidden;
 }
+
+/* A suspended account is still readable, just visibly out of play. */
+.row-muted td {
+  opacity: 0.62;
+}
+
+.cell-flag {
+  margin-top: 3px;
+  font-size: 12.5px;
+  color: var(--amber);
+  overflow-wrap: anywhere;
+}

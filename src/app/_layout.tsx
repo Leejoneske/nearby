@@ -8,6 +8,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { hasSeenIntro } from '../lib/firstRun';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { NameGate } from '../components/NameGate';
+import { NoticeBanner } from '../components/NoticeBanner';
+import { SuspendedGate } from '../components/SuspendedGate';
 import { UpdateGate } from '../components/UpdateGate';
 import { StoreProvider } from '../lib/store';
 import { colors } from '../theme/tokens';
@@ -84,8 +86,10 @@ export default function RootLayout() {
                 options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
               />
             </Stack>
-            {/* Sits over everything, so a prompt is not tied to one screen. */}
+            {/* These sit over everything, so nothing is tied to one screen. */}
             <NameGate />
+            <NoticeBanner />
+            <SuspendedGate />
           </UpdateGate>
         </StoreProvider>
         </ErrorBoundary>

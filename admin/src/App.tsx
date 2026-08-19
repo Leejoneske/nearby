@@ -18,6 +18,7 @@ import { amIAdmin, fetchOverview } from './api';
 import { Banner } from './components';
 import { SignIn } from './SignIn';
 import { Activity } from './pages/Activity';
+import { Fraud } from './pages/Fraud';
 import { Health } from './pages/Health';
 import { Listings } from './pages/Listings';
 import { Overview } from './pages/Overview';
@@ -33,6 +34,7 @@ export type Page =
   | 'reviews'
   | 'reports'
   | 'people'
+  | 'fraud'
   | 'health';
 
 /*
@@ -59,7 +61,10 @@ const GROUPS: { title: string; pages: { id: Page; label: string }[] }[] = [
   },
   {
     title: 'Diagnose',
-    pages: [{ id: 'health', label: 'Health' }],
+    pages: [
+      { id: 'fraud', label: 'Signals' },
+      { id: 'health', label: 'Health' },
+    ],
   },
 ];
 
@@ -73,6 +78,7 @@ export function App() {
   const [openReports, setOpenReports] = useState(0);
   const [pending, setPending] = useState(0);
   const [errors, setErrors] = useState(0);
+  const [flagged, setFlagged] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -121,11 +127,13 @@ export function App() {
         setOpenReports(c.reports_open);
         setPending(c.listings_pending);
         setErrors(c.errors_people_week);
+        setFlagged(c.people_flagged);
       })
       .catch(() => {
         setOpenReports(0);
         setPending(0);
         setErrors(0);
+        setFlagged(0);
       });
   }, [admin]);
 
@@ -200,6 +208,9 @@ export function App() {
                 {p.id === 'health' && errors > 0 ? (
                   <span className="nav-count">{errors}</span>
                 ) : null}
+                {p.id === 'fraud' && flagged > 0 ? (
+                  <span className="nav-count">{flagged}</span>
+                ) : null}
               </button>
             ))}
           </div>
@@ -228,6 +239,8 @@ function Body({ page, onGo }: { page: Page; onGo: (p: Page) => void }) {
       return <Activity />;
     case 'listings':
       return <Listings />;
+    case 'fraud':
+      return <Fraud />;
     case 'health':
       return <Health />;
     case 'reviews':

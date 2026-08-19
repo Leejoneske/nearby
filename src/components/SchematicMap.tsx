@@ -1,10 +1,10 @@
 /**
  * A drawn map, for when there is no real one to show.
  *
- * Two callers. The web build has no `react-native-maps` at all. And Android
- * without a Maps SDK key renders a blank grey rectangle with a Google
- * watermark in the corner — which looks like a broken app rather than a
- * missing key, and is what shipped once already.
+ * Two callers. The web build has no MapLibre Native at all, and on a device
+ * this takes over when the tile server cannot be reached. Both of those used
+ * to be a blank grey rectangle, which reads as a broken app rather than as a
+ * map that could not load, and is what shipped once already.
  *
  * Marker positions are honest: latitude and longitude are projected into the
  * view with the same region maths the real map uses, so a pin that looks

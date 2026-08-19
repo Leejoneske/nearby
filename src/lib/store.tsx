@@ -29,12 +29,14 @@ import React, {
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
+import { Platform } from 'react-native';
 
 import { DEFAULT_AREA, DEFAULT_CITY } from '../data/location';
 import type { AppNotification, Business, NewBusiness, Review, Session } from '../data/types';
 import * as api from './api';
 import { initialsOf } from './format';
 import { cleanDisplayName } from './identity';
+import { deviceFingerprint } from './deviceId';
 import { reportError } from './errorReporting';
 import { supabase } from './supabase';
 import { useOrigin } from './useOrigin';
@@ -103,6 +105,18 @@ type StoreValue = {
   markAllNotificationsRead: () => void;
   /** Re-reads the list from the database. */
   refreshNotifications: () => Promise<void>;
+  /** A notification that arrived just now, for the banner over the app. */
+  incoming: AppNotification | null;
+  dismissIncoming: () => void;
+
+  /**
+   * The reason this account was suspended, if it was. Empty string means
+   * suspended with no reason recorded; null means not suspended.
+   */
+  suspension: string | null;
+  clearSuspension: () => void;
+  /** Removes the account and everything of it. Throws with a reason. */
+  deleteAccount: () => Promise<void>;
 
   savedIds: string[];
   isSaved: (id: string) => boolean;
@@ -167,6 +181,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   /** Which account's listings we have already gone and fetched. */
   const ownedFetched = useRef<string | null>(null);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  /** The one just delivered, for the banner. Cleared when it is dismissed. */
+  const [incoming, setIncoming] = useState<AppNotification | null>(null);
+  /** Set when this account was found suspended, so the app can say why. */
+  const [suspension, setSuspension] = useState<string | null>(null);
 
   /* ------------------------------------------------------------ loading -- */
 
@@ -380,12 +398,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           table: 'notifications',
           filter: `profile_id=eq.${profileId}`,
         },
-        () => {
+        (payload) => {
           // Re-read rather than patch the payload in. A notification carries
           // a business slug from a joined row, which the payload does not.
           void api
             .fetchNotifications(profileId)
-            .then(setNotifications)
+            .then((rows) => {
+              setNotifications(rows);
+              /*
+               * A new one that arrives while somebody is looking at the app
+               * shows itself, rather than waiting in a list nobody has a
+               * reason to open. This is the whole of "in-app notifications":
+               * being told when it happens, not finding out later.
+               *
+               * Only inserts. An update is a read receipt coming back from
+               * another device, and announcing that would be announcing
+               * something the person just did.
+               */
+              if (payload.eventType !== 'INSERT') return;
+              const id = (payload.new as { id?: string } | null)?.id;
+              const arrived = rows.find((n) => n.id === id);
+              if (arrived && !arrived.read) setIncoming(arrived);
+            })
             .catch((e) => reportError('store/notifications', e));
         },
       )
@@ -456,6 +490,56 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       alive = false;
     };
   }, [originLat, originLng, mergeBusinesses]);
+
+  /*
+   * Two things the account has to be asked about once it exists.
+   *
+   * A token issued before a suspension keeps working until it expires, so
+   * "am I still allowed in" is a question rather than an assumption — and the
+   * answer, when it is no, has to end the session here rather than let
+   * somebody wander a half-working app finding every write refused.
+   *
+   * The device goes with it, because one phone with many sign-ins is the only
+   * signal that catches a ring of accounts, and it is worth recording at the
+   * moment a sign-in happens.
+   */
+  useEffect(() => {
+    if (!profileId) return;
+    let alive = true;
+
+    (async () => {
+      try {
+        const state = await api.fetchAccountState();
+        if (!alive) return;
+
+        if (state.suspended) {
+          setSuspension(state.reason ?? '');
+          await supabase.auth.signOut();
+          return;
+        }
+
+        const fingerprint = await deviceFingerprint();
+        if (!alive) return;
+        await api.recordDevice({
+          fingerprint,
+          platform: `${Platform.OS}${Platform.Version ? ` ${Platform.Version}` : ''}`,
+          lat: precise ? origin.lat : undefined,
+          lng: precise ? origin.lng : undefined,
+        });
+      } catch (e) {
+        // Not being able to ask is not the same as being suspended, and
+        // locking somebody out because a request failed is the worse mistake.
+        reportError('store/account', e);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+    // Deliberately not re-run when the position changes: this is a sign-in
+    // time record, not a movement log.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileId]);
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
@@ -590,6 +674,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
   }, [notifications]);
 
+  const dismissIncoming = useCallback(() => setIncoming(null), []);
+  const clearSuspension = useCallback(() => setSuspension(null), []);
+
+  /**
+   * Deletes the account, then signs out.
+   *
+   * The order matters: the storage clean-up inside `deleteMyAccount` needs a
+   * session the storage policies will accept, and there is nobody left to do
+   * it afterwards.
+   */
+  const deleteAccount = useCallback(async () => {
+    if (!profileId) throw new Error('There is no account to delete.');
+    await api.deleteMyAccount(profileId);
+    await supabase.auth.signOut();
+  }, [profileId]);
+
   /** Re-reads the list. The notifications screen calls this when it opens. */
   const refreshNotifications = useCallback(async () => {
     if (!profileId) return;
@@ -673,32 +773,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   /*
-   * Throws rather than returning quietly when there is nobody to attribute
-   * the report to.
+   * Reporting a listing needs no account, deliberately.
    *
-   * The first version returned early, which the report sheet read as success
-   * and answered with "thank you, we will take a look" — for a report that
-   * was never written. A caller cannot tell "done" from "silently dropped"
-   * unless the failure is a failure.
+   * The people most likely to notice that a listing is a fake, a duplicate,
+   * or a business that closed two years ago are the people walking past it,
+   * and most of them are not signed in. Requiring an account meant refusing
+   * the reports we most needed. A report is not a claim about the reporter.
+   *
+   * It still throws rather than returning quietly when the write fails. An
+   * earlier version returned early, which the sheet read as success and
+   * answered with "thank you, we will take a look" — for a report that was
+   * never written.
    */
   const reportBusiness = useCallback(
     async (id: string, reason: string) => {
-      if (!profileId) {
-        router.push('/(auth)/sign-in');
-        throw new NeedsAccountError();
-      }
-
       const business = businesses.find((b) => b.id === id);
       if (!business?.dbId) throw new Error('That listing is not loaded.');
 
       await api.createReport({
         targetType: 'business',
         targetId: business.dbId,
-        reporterId: profileId,
         reason,
       });
     },
-    [businesses, profileId],
+    [businesses],
   );
 
   const replyToReview = useCallback(
@@ -792,6 +890,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       markNotificationRead,
       markAllNotificationsRead,
       refreshNotifications,
+      incoming,
+      dismissIncoming,
+      suspension,
+      clearSuspension,
+      deleteAccount,
       savedIds,
       isSaved,
       toggleSaved,
@@ -809,7 +912,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       businesses, loading, error, loadBusinesses, precise, origin, loadDetail, recordEvent,
       viewer, session, profileId, signOut, updateViewer, profileLoaded, needsName,
       notifications, unreadCount, markNotificationRead, markAllNotificationsRead,
-      refreshNotifications,
+      refreshNotifications, incoming, dismissIncoming,
+      suspension, clearSuspension, deleteAccount,
       savedIds, isSaved, toggleSaved, recentIds, markViewed,
       getBusiness, ownedBusinesses, updateBusiness, addBusiness, reportBusiness,
       replyToReview, addReview,

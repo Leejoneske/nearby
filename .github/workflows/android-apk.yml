@@ -76,17 +76,11 @@ jobs:
       # android/ is generated, not committed, so it is rebuilt from app.json
       # every run and cannot drift from the config.
       #
-      # The maps key is injected here rather than committed. Without the
-      # secret set the build still succeeds — the app draws its own map
-      # instead of Google's, which is a worse map rather than a broken one.
+      # No map key, deliberately. The map is MapLibre against OpenFreeMap's
+      # tiles, which need no account and no card, so there is nothing here to
+      # inject and nothing to leave out by accident.
       - name: Generate the native Android project
-        env:
-          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
-        run: |
-          if [ -z "$GOOGLE_MAPS_API_KEY" ]; then
-            echo "::warning::No GOOGLE_MAPS_API_KEY secret set — this build ships the drawn map."
-          fi
-          npx expo prebuild --platform android --no-install
+        run: npx expo prebuild --platform android --no-install
 
       # A single APK carrying native code for every CPU is ~105 MB, most of
       # which any given phone throws away. Two changes cut that down:

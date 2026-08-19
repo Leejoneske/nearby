@@ -8,6 +8,7 @@ import { Photo } from '../../components/Photo';
 import { Avatar, Card, InfoRow, Pill, SectionHeader } from '../../components/primitives';
 import { useUpdates } from '../../components/UpdateGate';
 import { appVersionLabel } from '../../lib/appInfo';
+import { stateBadge } from '../../lib/listingState';
 
 import { useStore } from '../../lib/store';
 import {
@@ -93,6 +94,7 @@ export default function ProfileScreen() {
         <SectionHeader title="Your businesses" />
         <View style={styles.section}>
           {ownedBusinesses.map((business) => {
+            const badge = stateBadge(business.status);
             return (
               <Pressable
                 key={business.id}
@@ -117,7 +119,14 @@ export default function ProfileScreen() {
                     {business.neighbourhood}
                   </Text>
                   <View style={styles.ownedPills}>
-                    {business.verified ? (
+                    {/*
+                      * The state comes first, because "waiting for review" is
+                      * the answer to the question an owner has just after
+                      * submitting, and it used to be nowhere on the screen.
+                      */}
+                    {badge ? (
+                      <Pill label={badge.label} icon={badge.icon} tone={badge.tone} />
+                    ) : business.verified ? (
                       <Pill label="Verified" icon="checkmark-circle" tone="success" />
                     ) : (
                       <Pill label="Unverified" icon="alert-circle" tone="danger" />

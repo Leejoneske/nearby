@@ -20,6 +20,8 @@ export type Overview = {
   people: number;
   people_new_week: number;
   people_active_week: number;
+  people_suspended: number;
+  people_flagged: number;
   reviews_total: number;
   reviews_new_week: number;
   reviews_unanswered: number;
@@ -153,7 +155,30 @@ export type AdminPerson = {
   name: string | null;
   email: string | null;
   area: string | null;
+  avatar_url: string | null;
   created_at: string;
+  suspended_at: string | null;
+  suspended_reason: string | null;
+  is_admin: boolean;
+  listings: number;
+  reviews: number;
+  reports_against: number;
+  fraud_score: number;
+  signals: string | null;
+  devices: number;
+  last_seen: string | null;
+};
+
+export type AccountState = 'all' | 'active' | 'suspended' | 'flagged';
+
+/** Accounts sharing one device, which is the signal worth seeing as a group. */
+export type DeviceRing = {
+  fingerprint: string;
+  accounts: number;
+  names: string;
+  platforms: string | null;
+  places: string | null;
+  last_seen: string;
 };
 
 export type AdminAction = {
@@ -298,14 +323,62 @@ export async function fetchReports(state: ReportState | 'all' = 'open') {
   return (data ?? []) as AdminReport[];
 }
 
-export async function fetchPeople(): Promise<AdminPerson[]> {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, name, email, area, created_at')
-    .order('created_at', { ascending: false })
-    .limit(200);
+/**
+ * Accounts, with their state and their score.
+ *
+ * An RPC rather than a select, because the table now needs the suspension,
+ * the fraud signals and four counts per row — and doing that from a plain
+ * select is one query to list them and one per row to fill them in.
+ *
+ * The order is the queue: flagged and not yet suspended first, worst score at
+ * the top, then newest. What an admin opens this page to find is the thing
+ * nobody has looked at yet.
+ */
+export async function fetchPeople(
+  options: { query?: string; state?: AccountState } = {},
+): Promise<AdminPerson[]> {
+  const { data, error } = await supabase.rpc('admin_accounts', {
+    in_query: options.query?.trim() || null,
+    in_state: options.state ?? 'all',
+    in_limit: 200,
+  });
   if (error) throw error;
   return (data ?? []) as AdminPerson[];
+}
+
+export async function fetchDeviceRings(): Promise<DeviceRing[]> {
+  const { data, error } = await supabase.rpc('admin_device_rings', { in_min: 2 });
+  if (error) throw error;
+  return (data ?? []) as DeviceRing[];
+}
+
+/**
+ * Suspends an account, entirely.
+ *
+ * Not a soft block. They cannot sign in, their token stops being able to
+ * write, their listings and reviews leave the directory, and nothing is sent
+ * to them. Restoring puts all four back.
+ */
+export async function suspendAccount(id: string, reason: string) {
+  const { error } = await supabase.rpc('admin_suspend_account', {
+    in_profile_id: id,
+    in_reason: reason,
+  });
+  if (error) throw error;
+}
+
+export async function restoreAccount(id: string) {
+  const { error } = await supabase.rpc('admin_restore_account', { in_profile_id: id });
+  if (error) throw error;
+}
+
+/** Clears the fraud flags on an account somebody has decided is fine. */
+export async function clearSignals(id: string, note = '') {
+  const { error } = await supabase.rpc('admin_clear_signals', {
+    in_profile_id: id,
+    in_note: note,
+  });
+  if (error) throw error;
 }
 
 export async function fetchActions(): Promise<AdminAction[]> {

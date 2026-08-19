@@ -2,7 +2,7 @@
   "expo": {
     "name": "Nearby",
     "slug": "nearby",
-    "version": "1.6.0",
+    "version": "1.7.0",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -58,7 +58,8 @@
         {
           "locationWhenInUsePermission": "Nearby uses your location to show businesses around you and how far away they are."
         }
-      ]
+      ],
+      "@maplibre/maplibre-react-native"
     ],
     "experiments": {
       "typedRoutes": true,

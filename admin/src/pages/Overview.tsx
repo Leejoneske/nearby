@@ -23,7 +23,9 @@ import {
 } from '../api';
 import { ACTIVITY_LOOK, Banner, Empty, Sparkbars, Stat, ago } from '../components';
 
-type Page = 'overview' | 'listings' | 'reviews' | 'reports' | 'people' | 'activity' | 'health';
+type Page =
+  | 'overview' | 'listings' | 'reviews' | 'reports'
+  | 'people' | 'activity' | 'fraud' | 'health';
 
 export function Overview({ onGo }: { onGo: (page: Page) => void }) {
   const [counts, setCounts] = useState<Counts | null>(null);
@@ -99,6 +101,12 @@ export function Overview({ onGo }: { onGo: (page: Page) => void }) {
             count={counts.reports_open}
             done="Nothing reported"
             onGo={() => onGo('reports')}
+          />
+          <Todo
+            label="Accounts flagged"
+            count={counts.people_flagged}
+            done="Nothing flagged"
+            onGo={() => onGo('fraud')}
           />
           <Todo
             label="People hit an error"
@@ -185,6 +193,11 @@ export function Overview({ onGo }: { onGo: (page: Page) => void }) {
               label="Unread notifications"
               value={counts.notifications_unread}
               note="sent, not yet opened"
+            />
+            <Stat
+              label="Suspended accounts"
+              value={counts.people_suspended}
+              note="hidden from the directory"
             />
           </div>
 
