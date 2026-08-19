@@ -181,15 +181,6 @@ export type DeviceRing = {
   last_seen: string;
 };
 
-export type AdminAction = {
-  id: string;
-  action: string;
-  target_type: string;
-  target_id: string | null;
-  detail: Record<string, unknown>;
-  created_at: string;
-};
-
 /** Whether the signed-in account is an admin. False for everybody else. */
 export async function amIAdmin(): Promise<boolean> {
   const { data, error } = await supabase.rpc('is_admin');
@@ -379,16 +370,6 @@ export async function clearSignals(id: string, note = '') {
     in_note: note,
   });
   if (error) throw error;
-}
-
-export async function fetchActions(): Promise<AdminAction[]> {
-  const { data, error } = await supabase
-    .from('admin_actions')
-    .select('id, action, target_type, target_id, detail, created_at')
-    .order('created_at', { ascending: false })
-    .limit(100);
-  if (error) throw error;
-  return (data ?? []) as AdminAction[];
 }
 
 /* ------------------------------------------------------------- writes -- */

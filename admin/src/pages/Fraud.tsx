@@ -114,17 +114,17 @@ export function Fraud() {
             <tbody>
               {rings.map((ring) => (
                 <tr key={ring.fingerprint}>
-                  <td className="num nowrap">
+                  <td data-label="Accounts" className="num nowrap">
                     <span className={ring.accounts >= 3 ? 'pill open' : 'pill quiet'}>
                       {ring.accounts}
                     </span>
                   </td>
-                  <td>
+                  <td data-label="Who">
                     <div className="cell-title">{ring.names}</div>
                     <div className="cell-sub mono">{ring.fingerprint}</div>
                   </td>
-                  <td className="nowrap cell-sub">{ring.platforms || 'unknown'}</td>
-                  <td className="nowrap cell-sub">{ago(ring.last_seen)}</td>
+                  <td data-label="Platform" className="nowrap cell-sub">{ring.platforms || 'unknown'}</td>
+                  <td data-label="Last seen" className="nowrap cell-sub">{ago(ring.last_seen)}</td>
                 </tr>
               ))}
             </tbody>

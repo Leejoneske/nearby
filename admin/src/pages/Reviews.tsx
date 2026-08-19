@@ -10,6 +10,8 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { fetchReviews, removeReview, type AdminReview } from '../api';
 import { Banner, Empty, ago } from '../components';
+import { download } from '../download';
+import { csvFilename, toCsv } from '../lib';
 
 export function Reviews() {
   const [rows, setRows] = useState<AdminReview[]>([]);
@@ -32,30 +34,16 @@ export function Reviews() {
   }, [unansweredOnly]);
 
   /*
-   * The load runs inside the effect rather than being called out of it, so
-   * nothing sets state synchronously as the effect body executes — which is
-   * what turns one render into a cascade of them.
+   * One implementation of the fetch, not two. This used to carry a copy of
+   * `load` inline to keep a synchronous setState out of the effect body; the
+   * copy drifted, and the two of them ended up reporting the same failure in
+   * two different words. Deferring by a tick keeps the effect clean and keeps
+   * the message in one place.
    */
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      try {
-        const data = await fetchReviews({ unansweredOnly });
-        if (!alive) return;
-        setRows(data);
-        setError(null);
-      } catch (e) {
-        console.warn('[reviews]', e);
-        if (alive) setError('We could not load this.');
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [unansweredOnly]);
+    const timer = setTimeout(() => void load(), 0);
+    return () => clearTimeout(timer);
+  }, [load]);
 
   const remove = async (row: AdminReview) => {
     const reason = window.prompt(
@@ -78,6 +66,20 @@ export function Reviews() {
     }
   };
 
+  const exportCsv = () => {
+    download(
+      csvFilename('reviews'),
+      toCsv(rows, [
+        { header: 'Listing', value: (r: AdminReview) => r.businesses?.name },
+        { header: 'Rating', value: (r: AdminReview) => r.rating },
+        { header: 'Author', value: (r: AdminReview) => r.author_name },
+        { header: 'Review', value: (r: AdminReview) => r.body },
+        { header: 'Owner reply', value: (r: AdminReview) => r.owner_reply },
+        { header: 'Written', value: (r: AdminReview) => r.created_at },
+      ]),
+    );
+  };
+
   return (
     <>
       <div className="page-head">
@@ -85,6 +87,9 @@ export function Reviews() {
           <h1>Reviews</h1>
           <p>Everything people have written, newest first.</p>
         </div>
+        <button className="btn small" onClick={exportCsv} disabled={rows.length === 0}>
+          Export {rows.length} as CSV
+        </button>
       </div>
 
       {error ? <Banner kind="error">{error}</Banner> : null}
@@ -124,17 +129,17 @@ export function Reviews() {
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id}>
-                  <td className="num nowrap cell-title">{row.rating} / 5</td>
-                  <td style={{ maxWidth: 420 }}>
+                  <td data-label="Rating" className="num nowrap cell-title">{row.rating} / 5</td>
+                  <td data-label="Review" style={{ maxWidth: 420 }}>
                     <div>{row.body}</div>
                     <div className="cell-sub">
                       by {row.author_name}
                       {row.owner_reply ? ' · owner replied' : ''}
                     </div>
                   </td>
-                  <td className="cell-sub">{row.businesses?.name ?? '—'}</td>
-                  <td className="nowrap cell-sub">{ago(row.created_at)}</td>
-                  <td>
+                  <td data-label="Listing" className="cell-sub">{row.businesses?.name ?? '—'}</td>
+                  <td data-label="When" className="nowrap cell-sub">{ago(row.created_at)}</td>
+                  <td data-label="">
                     <div className="row-actions">
                       <button
                         className="btn small danger"

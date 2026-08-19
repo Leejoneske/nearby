@@ -457,11 +457,19 @@ tbody tr:hover {
 
 /* ------------------------------------------------------------ sign in -- */
 
+/*
+ * The front door is the one screen in the console that a stranger might see,
+ * so it is the one screen allowed a little air. Everything below is still on
+ * the console's palette — this is the same tool, not a marketing page.
+ */
 .gate {
   min-height: 100%;
   display: grid;
   place-items: center;
-  padding: 24px;
+  padding: 24px 20px 40px;
+  background:
+    radial-gradient(60% 50% at 50% 0%, var(--accent-soft) 0%, transparent 70%),
+    var(--canvas);
 }
 
 .gate-card {
@@ -471,26 +479,66 @@ tbody tr:hover {
   border: 1px solid var(--border);
   border-radius: 14px;
   box-shadow: var(--shadow);
-  padding: 28px;
+  padding: 28px 24px 22px;
+}
+
+.gate-mark {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 16px;
+  user-select: none;
 }
 
 .gate-card h1 {
   font-size: 20px;
+  letter-spacing: -0.01em;
   margin-bottom: 6px;
 }
 
-.gate-card p {
+.gate-lede {
   color: var(--text-2);
   margin: 0 0 18px;
 }
 
 .gate-form {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .gate-form input {
   width: 100%;
+}
+
+/* Labels sit tight against their field, so the gap above one is what groups
+   it with the field before it. */
+.gate-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-top: 6px;
+}
+
+.gate-form .btn.primary {
+  margin-top: 8px;
+}
+
+.gate-fine {
+  margin: 18px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-3);
 }
 
 .code-input {
@@ -498,39 +546,6 @@ tbody tr:hover {
   font-size: 18px;
   text-align: center;
   font-variant-numeric: tabular-nums;
-}
-
-@media (max-width: 720px) {
-  .shell {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
-    padding: 12px;
-  }
-
-  .brand {
-    padding: 0 8px 0 0;
-  }
-
-  .nav-item {
-    width: auto;
-  }
-
-  .sidebar-foot {
-    margin: 0 0 0 auto;
-    border: 0;
-    padding: 0;
-  }
-
-  .main {
-    padding: 16px 14px 48px;
-  }
 }
 
 /* ------------------------------------------------------ review queue -- */
@@ -950,4 +965,471 @@ tbody tr:hover {
   font-size: 12.5px;
   color: var(--amber);
   overflow-wrap: anywhere;
+}
+
+/* =========================================================== on a phone ==
+ *
+ * The console is a desktop tool and will mostly be used as one. But the
+ * moment it matters most is the one where somebody is not at a desk: a report
+ * comes in, a listing needs approving, an account needs suspending now.
+ *
+ * So this is not a squeezed desktop. The sidebar becomes a top bar with a
+ * nav that scrolls sideways, and every table becomes a list of cards — which
+ * is the only way the row actions stay reachable. Before this, the Suspend
+ * button on People sat off the right edge of the screen with no way to get
+ * to it, so the one thing somebody would open their phone to do was the one
+ * thing they could not.
+ */
+
+@media (max-width: 860px) {
+  .shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  /*
+   * `min-width: 0` on both, or a grid item is sized by its content and the
+   * whole page grows a horizontal scrollbar. A nav meant to scroll inside
+   * itself will otherwise scroll the document instead.
+   */
+  .shell > * {
+    min-width: 0;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      'brand account'
+      'nav   nav';
+    align-items: center;
+    gap: 0;
+    overflow: hidden;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    padding: 0;
+  }
+
+  /* Brand and account share the top line, nav gets the one underneath. */
+  .sidebar > .brand {
+    grid-area: brand;
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+  }
+
+  .sidebar-foot {
+    grid-area: account;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin: 0;
+    padding: 10px 14px;
+    border: 0;
+    min-width: 0;
+  }
+
+  .sidebar-foot div {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .nav-scroller {
+    grid-area: nav;
+    border-top: 1px solid var(--border);
+    max-width: 100%;
+  }
+
+  /* A checkbox and its label belong together, whatever the toolbar does. */
+  .toggle {
+    justify-content: flex-start;
+  }
+
+  /* One scrolling row of sections. The group titles are for a sidebar and
+     only get in the way here. */
+  .nav-group {
+    display: contents;
+  }
+
+  .nav-title {
+    display: none;
+  }
+
+  .sidebar .nav-item {
+    display: inline-flex;
+    width: auto;
+    white-space: nowrap;
+  }
+
+  .nav-scroller {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    padding: 8px 10px;
+    scrollbar-width: none;
+  }
+
+  .nav-scroller::-webkit-scrollbar {
+    display: none;
+  }
+
+  .main {
+    padding: 16px 14px 56px;
+  }
+
+  .page-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* Stretch the fields, but not the checkboxes: a 100% wide checkbox is
+     what pushed "Unverified" to the far side of its own label. */
+  .toolbar select,
+  .toolbar input:not([type='checkbox']) {
+    width: 100%;
+  }
+
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* ----------------------------------------------- tables become cards -- */
+
+  .table-wrap {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  table,
+  tbody,
+  tr,
+  td {
+    display: block;
+    width: 100%;
+  }
+
+  thead {
+    display: none;
+  }
+
+  tbody tr {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 10px;
+    padding: 4px 0;
+  }
+
+  tbody tr td {
+    border-bottom: 0;
+    padding: 6px 14px;
+  }
+
+  /*
+   * The header text comes back as a label on each cell, so a card still says
+   * what its numbers are. Cells that carry their own meaning opt out with
+   * `data-label=""`.
+   */
+  td[data-label]:not([data-label=''])::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin-bottom: 2px;
+  }
+
+  td.num {
+    text-align: left;
+  }
+
+  .row-actions {
+    flex-wrap: wrap;
+    padding-top: 4px;
+  }
+
+  .row-actions .btn {
+    flex: 1 1 auto;
+    min-height: 36px;
+  }
+
+  /* ------------------------------------------------------- the dialog -- */
+
+  .dialog-backdrop {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .dialog {
+    width: 100%;
+    max-height: 100%;
+    border-radius: 0;
+  }
+
+  .dialog-body {
+    grid-template-columns: 1fr;
+  }
+
+  .queue-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .queue-head .row-actions .btn {
+    flex: 1 1 auto;
+  }
+
+  .feed-row {
+    flex-wrap: wrap;
+  }
+
+  .feed-when {
+    width: 100%;
+    padding-left: 74px;
+  }
+}
+
+/*
+ * Two tiles across even on the smallest phone. One column turned the overview
+ * into a three-and-a-half thousand pixel scroll, which is the opposite of what
+ * the page is for: the point of it is seeing the numbers together.
+ */
+@media (max-width: 420px) {
+  .stats {
+    gap: 8px;
+  }
+
+  .stat {
+    padding: 12px;
+  }
+
+  .stat-value {
+    font-size: 22px;
+  }
+}
+
+/* Full-width buttons, for the gate and for stacked actions. */
+.btn.block {
+  width: 100%;
+  display: block;
+  min-height: 42px;
+}
+
+.btn.quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-2);
+}
+
+.btn.quiet:hover:not(:disabled) {
+  background: var(--sunken);
+}
+
+/* On a desktop the scroller is just the column it always was. */
+@media (min-width: 861px) {
+  .nav-scroller {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+  }
+}
+
+/* --------------------------------------------------------- the go box -- */
+
+/* The button that opens it. Looks like the search field it replaces, because
+   that is what somebody is reaching for when they click it. */
+.nav-find {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 14px;
+  padding: 7px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-3);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nav-find:hover {
+  border-color: var(--accent);
+  color: var(--text-2);
+}
+
+.nav-find kbd {
+  font: inherit;
+  font-size: 11px;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--sunken);
+  color: var(--text-3);
+}
+
+.palette-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(20, 24, 29, 0.35);
+  display: grid;
+  /* Near the top rather than centred: the list grows downwards, and a box
+     that grows from the middle of the screen moves under the cursor. */
+  align-content: start;
+  justify-items: center;
+  padding: 10vh 16px 16px;
+}
+
+.palette {
+  width: 100%;
+  max-width: 560px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(20, 24, 29, 0.22);
+  overflow: hidden;
+}
+
+.palette-input {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  padding: 14px 16px;
+  font-size: 16px;
+}
+
+.palette-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.palette-hits {
+  max-height: min(52vh, 420px);
+  overflow-y: auto;
+}
+
+.palette-hit {
+  display: grid;
+  grid-template-columns: 62px 1fr;
+  align-items: baseline;
+  gap: 4px 10px;
+  width: 100%;
+  padding: 9px 16px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.palette-hit[aria-selected='true'] {
+  background: var(--accent-soft);
+}
+
+.palette-kind {
+  grid-row: 1 / span 2;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  padding-top: 2px;
+}
+
+.palette-label {
+  font-weight: 600;
+}
+
+.palette-detail {
+  grid-column: 2;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.palette-none,
+.palette-foot {
+  padding: 14px 16px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.palette-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  background: var(--sunken);
+  padding: 8px 16px;
+}
+
+/* --------------------------------------------------- the idle warning -- */
+
+/* Fixed rather than in the flow: it appears mid-read, and pushing the page
+   down under somebody's eyes is worse than covering the top of it. */
+.idle-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 16px;
+  background: var(--amber-soft);
+  color: var(--amber);
+  border-bottom: 1px solid var(--amber);
+  font-weight: 600;
+}
+
+/* An arrow to the page a customer sees. Quiet until it is wanted. */
+.cell-link {
+  color: var(--text-3);
+  text-decoration: none;
+  font-weight: 400;
+}
+
+.cell-link:hover {
+  color: var(--accent);
+}
+
+@media (max-width: 860px) {
+  /* The sidebar is a top bar here, and a full width search button in the
+     middle of it would push the nav off the screen. */
+  .nav-find {
+    display: none;
+  }
+
+  .palette-backdrop {
+    padding: 6vh 10px 10px;
+  }
+}
+
+/* The bar is fixed so it does not shove the page down mid-read, which means
+   the page has to make room for it itself. */
+.shell--warned {
+  padding-top: 41px;
 }

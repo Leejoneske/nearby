@@ -23,6 +23,8 @@ import {
   type PersonDetail,
 } from '../api';
 import { Banner, Empty, StatusPill, ago } from '../components';
+import { download } from '../download';
+import { csvFilename, toCsv } from '../lib';
 
 const STATES: { id: AccountState; label: string }[] = [
   { id: 'all', label: 'Everyone' },
@@ -31,9 +33,9 @@ const STATES: { id: AccountState; label: string }[] = [
   { id: 'active', label: 'Active' },
 ];
 
-export function People() {
+export function People({ initialQuery = '' }: { initialQuery?: string }) {
   const [rows, setRows] = useState<AdminPerson[]>([]);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery);
   const [state, setState] = useState<AccountState>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,6 +85,27 @@ export function People() {
     void act(row.id, () => suspendAccount(row.id, reason));
   };
 
+  const exportCsv = () => {
+    download(
+      csvFilename('people'),
+      toCsv(rows, [
+        { header: 'Name', value: (r: AdminPerson) => r.name },
+        { header: 'Email', value: (r: AdminPerson) => r.email },
+        { header: 'Area', value: (r: AdminPerson) => r.area },
+        { header: 'Joined', value: (r: AdminPerson) => r.created_at },
+        { header: 'Last seen', value: (r: AdminPerson) => r.last_seen },
+        { header: 'Listings', value: (r: AdminPerson) => r.listings },
+        { header: 'Reviews', value: (r: AdminPerson) => r.reviews },
+        { header: 'Reported', value: (r: AdminPerson) => r.reports_against },
+        { header: 'Devices', value: (r: AdminPerson) => r.devices },
+        { header: 'Fraud score', value: (r: AdminPerson) => r.fraud_score },
+        { header: 'Signals', value: (r: AdminPerson) => r.signals },
+        { header: 'Suspended', value: (r: AdminPerson) => r.suspended_at },
+        { header: 'Suspended because', value: (r: AdminPerson) => r.suspended_reason },
+      ]),
+    );
+  };
+
   return (
     <>
       <div className="page-head">
@@ -90,6 +113,9 @@ export function People() {
           <h1>People</h1>
           <p>Everyone with an account. Flagged ones come first.</p>
         </div>
+        <button className="btn small" onClick={exportCsv} disabled={rows.length === 0}>
+          Export {rows.length} as CSV
+        </button>
       </div>
 
       {error ? <Banner kind="error">{error}</Banner> : null}
@@ -142,7 +168,7 @@ export function People() {
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id} className={row.suspended_at ? 'row-muted' : undefined}>
-                  <td>
+                  <td data-label="Account">
                     <div className="cell-title">{row.name || 'Unnamed'}</div>
                     <div className="cell-sub">
                       {row.email || 'No email'}
@@ -151,7 +177,7 @@ export function People() {
                     </div>
                     {row.signals ? <div className="cell-flag">{row.signals}</div> : null}
                   </td>
-                  <td className="nowrap">
+                  <td data-label="State" className="nowrap">
                     {row.is_admin ? <span className="pill verified">Admin</span> : null}
                     {row.suspended_at ? (
                       <span className="pill suspended">Suspended</span>
@@ -164,12 +190,12 @@ export function People() {
                       <span className="pill quiet">{row.reports_against} reported</span>
                     ) : null}
                   </td>
-                  <td className="num nowrap">{row.listings || '—'}</td>
-                  <td className="num nowrap">{row.reviews || '—'}</td>
-                  <td className="nowrap cell-sub">
+                  <td data-label="Listings" className="num nowrap">{row.listings || '—'}</td>
+                  <td data-label="Reviews" className="num nowrap">{row.reviews || '—'}</td>
+                  <td data-label="Last seen" className="nowrap cell-sub">
                     {row.last_seen ? ago(row.last_seen) : 'Never'}
                   </td>
-                  <td>
+                  <td data-label="">
                     <div className="row-actions">
                       <button className="btn small" onClick={() => setOpenId(row.id)}>
                         Open

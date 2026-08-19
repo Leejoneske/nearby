@@ -15,7 +15,9 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 
 import { amIAdmin, fetchOverview } from './api';
+import { countdown } from './lib';
 import { Banner } from './components';
+import { CommandBar } from './CommandBar';
 import { SignIn } from './SignIn';
 import { Activity } from './pages/Activity';
 import { Fraud } from './pages/Fraud';
@@ -26,6 +28,7 @@ import { People } from './pages/People';
 import { Reports } from './pages/Reports';
 import { Reviews } from './pages/Reviews';
 import { supabase } from './supabase';
+import { useIdleSignOut } from './useIdleSignOut';
 
 export type Page =
   | 'overview'
@@ -79,6 +82,11 @@ export function App() {
   const [pending, setPending] = useState(0);
   const [errors, setErrors] = useState(0);
   const [flagged, setFlagged] = useState(0);
+  const [palette, setPalette] = useState(false);
+  // Set by the command bar so a section opens already searching for the thing
+  // that was picked. A counter rides along, or picking the same listing twice
+  // in a row would not look like a change to the page.
+  const [focus, setFocus] = useState<{ term: string; nonce: number }>({ term: '', nonce: 0 });
 
   useEffect(() => {
     let alive = true;
@@ -139,6 +147,45 @@ export function App() {
 
   useEffect(refreshBadge, [refreshBadge, page]);
 
+  const signOut = useCallback(() => {
+    void supabase.auth.signOut();
+  }, []);
+
+  /*
+   * The session closes itself when the desk is empty. See `lib.ts` for why
+   * that is worth having when the real boundary is in the database: this is
+   * about the laptop left open, not about anybody's permissions.
+   */
+  const idle = useIdleSignOut(admin === true, signOut);
+
+  /* One shortcut, and the two spellings of it that people have muscle memory
+     for. Skipped while a field has focus, or ⌘K in a search box would open a
+     second search box. */
+  useEffect(() => {
+    if (admin !== true) return;
+    const onKey = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      if ((e.metaKey || e.ctrlKey) && key === 'k') {
+        e.preventDefault();
+        setPalette(true);
+        return;
+      }
+      if (key === '/' && !e.metaKey && !e.ctrlKey) {
+        const on = document.activeElement?.tagName;
+        if (on === 'INPUT' || on === 'TEXTAREA' || on === 'SELECT') return;
+        e.preventDefault();
+        setPalette(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [admin]);
+
+  const go = useCallback((next: Page, term?: string) => {
+    setPage(next);
+    if (term !== undefined) setFocus((f) => ({ term, nonce: f.nonce + 1 }));
+  }, []);
+
   if (!checked) {
     return (
       <div className="gate">
@@ -179,7 +226,20 @@ export function App() {
   }
 
   return (
-    <div className="shell">
+    <div className={idle.verdict === 'warn' ? 'shell shell--warned' : 'shell'}>
+      {idle.verdict === 'warn' ? (
+        <div className="idle-bar" role="status">
+          <span>
+            Still there? This console signs itself out in {countdown(idle.secondsLeft)}.
+          </span>
+          <button className="btn small" onClick={idle.stayIn}>
+            Keep me signed in
+          </button>
+        </div>
+      ) : null}
+
+      {palette ? <CommandBar onClose={() => setPalette(false)} onGo={go} /> : null}
+
       <nav className="sidebar">
         <div className="brand">
           <span className="brand-dot" aria-hidden="true">
@@ -188,6 +248,14 @@ export function App() {
           Nearby
         </div>
 
+        <button className="nav-find" onClick={() => setPalette(true)}>
+          <span>Go to…</span>
+          <kbd>⌘K</kbd>
+        </button>
+
+        {/* One scrolling row on a phone, a column on a desktop. The wrapper
+            is inert on wide screens and does the scrolling on narrow ones. */}
+        <div className="nav-scroller">
         {GROUPS.map((group) => (
           <div className="nav-group" key={group.title}>
             <div className="nav-title">{group.title}</div>
@@ -196,7 +264,7 @@ export function App() {
                 key={p.id}
                 className="nav-item"
                 aria-current={page === p.id ? 'page' : undefined}
-                onClick={() => setPage(p.id)}
+                onClick={() => go(p.id)}
               >
                 {p.label}
                 {p.id === 'reports' && openReports > 0 ? (
@@ -215,30 +283,47 @@ export function App() {
             ))}
           </div>
         ))}
+        </div>
 
         <div className="sidebar-foot">
           <div>{session.user.email}</div>
-          <button className="btn small" onClick={() => void supabase.auth.signOut()}>
+          <button className="btn small" onClick={signOut}>
             Sign out
           </button>
         </div>
       </nav>
 
       <main className="main">
-        <Body page={page} onGo={setPage} />
+        <Body page={page} onGo={go} focus={focus} />
       </main>
     </div>
   );
 }
 
-function Body({ page, onGo }: { page: Page; onGo: (p: Page) => void }) {
+function Body({
+  page,
+  onGo,
+  focus,
+}: {
+  page: Page;
+  onGo: (p: Page) => void;
+  /**
+   * What the command bar picked, for the two screens that can search for it.
+   *
+   * Delivered by remounting rather than by a prop the screen watches: the
+   * term is that screen's initial state, and "initial state, except when this
+   * other thing changes" is an effect that copies a prop into state, which is
+   * a render pass nobody needs and a rule the linter is right about.
+   */
+  focus: { term: string; nonce: number };
+}) {
   switch (page) {
     case 'overview':
       return <Overview onGo={onGo} />;
     case 'activity':
       return <Activity />;
     case 'listings':
-      return <Listings />;
+      return <Listings key={`listings-${focus.nonce}`} initialQuery={focus.term} />;
     case 'fraud':
       return <Fraud />;
     case 'health':
@@ -248,7 +333,7 @@ function Body({ page, onGo }: { page: Page; onGo: (p: Page) => void }) {
     case 'reports':
       return <Reports />;
     case 'people':
-      return <People />;
+      return <People key={`people-${focus.nonce}`} initialQuery={focus.term} />;
     default:
       return <Banner kind="error">That screen does not exist.</Banner>;
   }

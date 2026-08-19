@@ -100,23 +100,23 @@ export function Health() {
             <tbody>
               {groups.map((group) => (
                 <tr key={group.fingerprint}>
-                  <td>
+                  <td data-label="What went wrong">
                     <div className="cell-title mono">{group.message}</div>
                     <div className="cell-sub">
                       {group.screen || 'unknown screen'} · first seen {ago(group.first_seen)}
                     </div>
                   </td>
-                  <td className="num nowrap">{group.occurrences}</td>
-                  <td className="num nowrap">
+                  <td data-label="Times" className="num nowrap">{group.occurrences}</td>
+                  <td data-label="People" className="num nowrap">
                     <span className={group.people > 1 ? 'pill open' : 'pill quiet'}>
                       {group.people}
                     </span>
                   </td>
-                  <td className="nowrap cell-sub">
+                  <td data-label="Where" className="nowrap cell-sub">
                     {group.platforms || 'unknown'}
                     {group.versions ? <div>{group.versions}</div> : null}
                   </td>
-                  <td className="nowrap cell-sub">{ago(group.last_seen)}</td>
+                  <td data-label="Last seen" className="nowrap cell-sub">{ago(group.last_seen)}</td>
                 </tr>
               ))}
             </tbody>

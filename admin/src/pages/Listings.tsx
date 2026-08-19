@@ -24,6 +24,8 @@ import {
   type BusinessStatus,
 } from '../api';
 import { Banner, Empty, StatusPill, ago } from '../components';
+import { download } from '../download';
+import { csvFilename, toCsv } from '../lib';
 
 const CATEGORIES = [
   'restaurant',
@@ -38,9 +40,9 @@ const CATEGORIES = [
   'nightlife',
 ];
 
-export function Listings() {
+export function Listings({ initialQuery = '' }: { initialQuery?: string }) {
   const [rows, setRows] = useState<AdminBusiness[]>([]);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery);
   const [status, setStatus] = useState<BusinessStatus | 'all'>('all');
   const [unverifiedOnly, setUnverifiedOnly] = useState(false);
   const [unclaimedOnly, setUnclaimedOnly] = useState(false);
@@ -48,6 +50,7 @@ export function Listings() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<AdminBusiness | null>(null);
+  const [bulk, setBulk] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -82,6 +85,68 @@ export function Listings() {
     }
   };
 
+  /*
+   * Approving the whole queue, one call at a time.
+   *
+   * Sequential rather than Promise.all: each approval writes an audit row and
+   * sends the owner a notification, and twenty at once is twenty writes
+   * racing the same counters. It also means a refusal halfway through leaves
+   * a queue that is half done and says so, rather than an unknown number of
+   * them having landed.
+   */
+  const approveAll = async () => {
+    const queue = rows.filter((row) => row.status === 'pending');
+    if (queue.length === 0) return;
+    if (
+      !window.confirm(
+        `Publish all ${queue.length} of these? Read them first: this puts every one of them in the directory.`,
+      )
+    ) {
+      return;
+    }
+
+    setBulk(true);
+    setError(null);
+    let done = 0;
+    try {
+      for (const row of queue) {
+        await reviewListing(row.id, true);
+        done += 1;
+      }
+    } catch (e) {
+      console.warn('[listings] a bulk approval was refused', e);
+      setError(
+        done === 0
+          ? 'That was refused. Nothing was published.'
+          : `${done} were published, then one was refused. The rest are still waiting.`,
+      );
+    } finally {
+      setBulk(false);
+      await load();
+    }
+  };
+
+  const exportCsv = () => {
+    download(
+      csvFilename('listings'),
+      toCsv(rows, [
+        { header: 'Name', value: (r: AdminBusiness) => r.name },
+        { header: 'Slug', value: (r: AdminBusiness) => r.slug },
+        { header: 'Category', value: (r: AdminBusiness) => r.category },
+        { header: 'Neighbourhood', value: (r: AdminBusiness) => r.neighbourhood },
+        { header: 'Address', value: (r: AdminBusiness) => r.address },
+        { header: 'Phone', value: (r: AdminBusiness) => r.phone },
+        { header: 'Website', value: (r: AdminBusiness) => r.website },
+        { header: 'Status', value: (r: AdminBusiness) => r.status },
+        { header: 'Verified', value: (r: AdminBusiness) => (r.verified ? 'yes' : 'no') },
+        { header: 'Owner', value: (r: AdminBusiness) => (r.owner_id ? 'claimed' : 'unclaimed') },
+        { header: 'Rating', value: (r: AdminBusiness) => r.rating },
+        { header: 'Reviews', value: (r: AdminBusiness) => r.review_count },
+        { header: 'Added', value: (r: AdminBusiness) => r.created_at },
+      ]),
+    );
+  };
+
   const filtered = query || status !== 'all' || unverifiedOnly || unclaimedOnly;
   // The queue is drawn from whatever is on screen, so a search narrows both.
   const pending = rows.filter((row) => row.status === 'pending');
@@ -93,6 +158,9 @@ export function Listings() {
           <h1>Listings</h1>
           <p>Read what people submit, then verify, edit, suspend or restore it.</p>
         </div>
+        <button className="btn small" onClick={exportCsv} disabled={rows.length === 0}>
+          Export {rows.length} as CSV
+        </button>
       </div>
 
       {error ? <Banner kind="error">{error}</Banner> : null}
@@ -101,6 +169,15 @@ export function Listings() {
         <section className="queue">
           <h2 className="queue-title">
             Waiting for review <span className="pill quiet">{pending.length}</span>
+            {pending.length > 1 ? (
+              <button
+                className="btn small"
+                disabled={bulk || busyId !== null}
+                onClick={() => void approveAll()}
+              >
+                {bulk ? 'Publishing…' : `Approve all ${pending.length}`}
+              </button>
+            ) : null}
           </h2>
           {pending.map((row) => (
             <article key={row.id} className="queue-card">
@@ -229,13 +306,26 @@ export function Listings() {
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id}>
-                  <td>
-                    <div className="cell-title">{row.name}</div>
+                  <td data-label="Business">
+                    <div className="cell-title">
+                      {row.name}{' '}
+                      {/* The console is served from the same origin as the
+                          share page, so this is the page a customer sees. */}
+                      <a
+                        className="cell-link"
+                        href={`/b/${row.slug}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Open the public page"
+                      >
+                        ↗
+                      </a>
+                    </div>
                     <div className="cell-sub">
                       {row.category} · {row.neighbourhood || row.address || 'No address'}
                     </div>
                   </td>
-                  <td className="nowrap">
+                  <td data-label="Status" className="nowrap">
                     <StatusPill status={row.status} />{' '}
                     {row.verified ? (
                       <span className="pill verified">Verified</span>
@@ -243,16 +333,16 @@ export function Listings() {
                       <span className="pill quiet">Unverified</span>
                     )}
                   </td>
-                  <td className="nowrap cell-sub">
+                  <td data-label="Owner" className="nowrap cell-sub">
                     {row.owner_id ? `Claimed ${ago(row.claimed_at)}` : 'Unclaimed'}
                   </td>
-                  <td className="num nowrap">
+                  <td data-label="Reviews" className="num nowrap">
                     {row.review_count > 0
                       ? `${Number(row.rating).toFixed(1)} · ${row.review_count}`
                       : '—'}
                   </td>
-                  <td className="nowrap cell-sub">{ago(row.created_at)}</td>
-                  <td>
+                  <td data-label="Added" className="nowrap cell-sub">{ago(row.created_at)}</td>
+                  <td data-label="">
                     <div className="row-actions">
                       <button className="btn small" onClick={() => setEditing(row)}>
                         Edit

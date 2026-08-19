@@ -14,5 +14,10 @@
     "skipLibCheck": true,
     "types": ["vite/client"]
   },
-  "include": ["src"]
+  "include": ["src"],
+  // Tests are run by the repo's jest, not by the console's build, and jest's
+  // globals are typed at the repo root. Vercel installs only `admin/`, so
+  // pulling @types/jest in here would make the deploy depend on a node_modules
+  // that is not there.
+  "exclude": ["src/**/*.test.ts"]
 }

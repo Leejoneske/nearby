@@ -592,6 +592,31 @@ migrating rows. It reads and does not act: acting on a listing belongs on
 Listings, where the listing and its context are, and a feed with buttons in it
 is a place to do things by accident.
 
+## What the console can do that a page of tables cannot
+
+Four things were added because the console is a tool somebody is in for an
+hour, not a page they read once:
+
+- **One box that goes anywhere** (`⌘K`, `Ctrl+K`, or `/`). Sections match
+  locally and appear instantly; listings and accounts are a debounced query
+  and are appended when they land. Picking one opens its section with the
+  search already filled in — delivered by remounting the screen with a `key`,
+  not by an effect that copies a prop into state.
+- **CSV from every table**, of exactly the rows on screen — the filters are
+  the query. Everything is quoted and the file starts with a BOM, because a
+  business name with a comma in it and an owner who opens files in Excel are
+  both the normal case, not the edge one. `toCsv` is in `lib.ts` with tests.
+- **Approve all**, on the pending queue, sequentially. Each approval writes an
+  audit row and notifies an owner, so a refusal halfway through has to leave a
+  half-done queue that says how many landed rather than an unknown number.
+- **A link to the page a customer sees** (`/b/<slug>`) on every listing row.
+  The console is served from the same origin as the share page, so it is a
+  relative link.
+
+`lib.ts` holds the decisions and has no imports; the screens hold the wiring.
+Same split as `src/lib/` in the app, for the same reason: the part worth being
+sure about should be runnable in a test without a browser or a database.
+
 ## Suspension means one thing everywhere
 
 A half suspension — cannot post, but the listings stay up and the reviews
@@ -681,6 +706,47 @@ Three consequences worth keeping:
 - **Suspending is a status, not a delete.** `businesses.status` drives
   visibility through the SELECT policy, which is why `businesses_nearby()`
   needed no change: it runs as the caller, so it inherits the policy.
+
+## Why /admin is a public URL, and what that is worth
+
+Anybody can type `/admin` and reach the sign-in card. That is not a leak, and
+hiding the URL would not be a fix. Three things are true at once:
+
+- **The console is a client.** It ships to a browser with the publishable key,
+  the same one the app uses. There is nothing secret in the bundle to protect.
+- **Signing in is not being an admin.** An ordinary Nearby account can get
+  through the sign-in card, and lands on "Not your console" with a sign-out
+  button. Every query behind it is refused by `is_admin()` inside the database.
+- **A hidden URL is guessed.** `/admin`, `/console`, `/staff` and a hundred
+  others are in every scanner's word list, so renaming the path buys a week of
+  quiet and costs everyone who has to remember it.
+
+What is actually worth doing, and is done:
+
+- `noindex, nofollow` in the page and as an `X-Robots-Tag`, `Disallow: /admin`
+  in `robots.txt`, `Cache-Control: no-store` on `/admin/*`. Not security —
+  this is so the console does not turn up in a search for the business name.
+- The sign-in card never says whether an address has an account. It shows the
+  same "a code is on its way" either way, and logs the real reason. Otherwise
+  the page is an oracle for who the admins are.
+- No account is created from here: `shouldCreateUser: false`. Without it the
+  console is a signup form for the whole project.
+- The session closes itself after thirty minutes of nothing, with two minutes
+  of warning (`lib.ts`, `useIdleSignOut.ts`). Supabase refreshes a token
+  indefinitely, so without this a laptop left open in a café stays signed in
+  for a week. This is the one that matters in practice — the realistic way
+  somebody who is not an admin ends up in the console is by sitting down at a
+  desk where one already is.
+
+If the page really should not be reachable at all, the way to do that is
+Vercel deployment protection on the path — Vercel Authentication, or Trusted
+IPs — which refuses the request at the edge before any of this loads. That is
+a project setting, not code, and it is worth turning on if the console is only
+ever opened from known machines. Do not try to reimplement it in the app: a
+check that runs after the bundle has been served is a check that has already
+served the bundle.
+
+The rule stays the one above: none of this is the boundary. `is_admin()` is.
 
 ## Reporting needs no account
 

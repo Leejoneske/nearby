@@ -10,6 +10,8 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { fetchReports, resolveReport, type AdminReport, type ReportState } from '../api';
 import { Banner, Empty, ReportPill, ago } from '../components';
+import { download } from '../download';
+import { csvFilename, toCsv } from '../lib';
 
 export function Reports() {
   const [rows, setRows] = useState<AdminReport[]>([]);
@@ -32,30 +34,16 @@ export function Reports() {
   }, [state]);
 
   /*
-   * The load runs inside the effect rather than being called out of it, so
-   * nothing sets state synchronously as the effect body executes — which is
-   * what turns one render into a cascade of them.
+   * One implementation of the fetch, not two. This used to carry a copy of
+   * `load` inline to keep a synchronous setState out of the effect body; the
+   * copy drifted, and the two of them ended up reporting the same failure in
+   * two different words. Deferring by a tick keeps the effect clean and keeps
+   * the message in one place.
    */
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      try {
-        const data = await fetchReports(state);
-        if (!alive) return;
-        setRows(data);
-        setError(null);
-      } catch (e) {
-        console.warn('[reports]', e);
-        if (alive) setError('We could not load this.');
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [state]);
+    const timer = setTimeout(() => void load(), 0);
+    return () => clearTimeout(timer);
+  }, [load]);
 
   const resolve = async (id: string, next: 'actioned' | 'dismissed') => {
     setBusyId(id);
@@ -71,6 +59,21 @@ export function Reports() {
     }
   };
 
+  const exportCsv = () => {
+    download(
+      csvFilename('reports'),
+      toCsv(rows, [
+        { header: 'Reason', value: (r: AdminReport) => r.reason },
+        { header: 'Detail', value: (r: AdminReport) => r.detail },
+        { header: 'About', value: (r: AdminReport) => r.target_type },
+        { header: 'Target', value: (r: AdminReport) => r.target_id },
+        { header: 'State', value: (r: AdminReport) => r.state },
+        { header: 'Reported', value: (r: AdminReport) => r.created_at },
+        { header: 'Resolved', value: (r: AdminReport) => r.resolved_at },
+      ]),
+    );
+  };
+
   return (
     <>
       <div className="page-head">
@@ -78,6 +81,9 @@ export function Reports() {
           <h1>Reports</h1>
           <p>Listings and reviews people have flagged.</p>
         </div>
+        <button className="btn small" onClick={exportCsv} disabled={rows.length === 0}>
+          Export {rows.length} as CSV
+        </button>
       </div>
 
       {error ? <Banner kind="error">{error}</Banner> : null}
@@ -119,19 +125,19 @@ export function Reports() {
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id}>
-                  <td style={{ maxWidth: 380 }}>
+                  <td data-label="Reason" style={{ maxWidth: 380 }}>
                     <div className="cell-title">{row.reason}</div>
                     {row.detail ? <div className="cell-sub">{row.detail}</div> : null}
                   </td>
-                  <td className="cell-sub nowrap">
+                  <td data-label="About" className="cell-sub nowrap">
                     {row.target_type}
                     <div className="cell-sub">{row.target_id.slice(0, 8)}</div>
                   </td>
-                  <td className="nowrap">
+                  <td data-label="State" className="nowrap">
                     <ReportPill state={row.state} />
                   </td>
-                  <td className="nowrap cell-sub">{ago(row.created_at)}</td>
-                  <td>
+                  <td data-label="When" className="nowrap cell-sub">{ago(row.created_at)}</td>
+                  <td data-label="">
                     {row.state === 'open' ? (
                       <div className="row-actions">
                         <button
