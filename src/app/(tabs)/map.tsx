@@ -35,6 +35,15 @@ export default function MapScreen() {
 
   const [categoryId, setCategoryId] = useState<CategoryId | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
+  /*
+   * Set when somebody asks to be centred on themselves, and cleared the
+   * moment they pick a pin.
+   *
+   * The button used to have an accessibility label reading "Centre on my
+   * location" and no handler at all — a control that announces itself to a
+   * screen reader and does nothing is worse than no control.
+   */
+  const [followMe, setFollowMe] = useState(false);
   const now = useMemo(() => new Date(), []);
 
   const visible = useMemo(
@@ -45,7 +54,7 @@ export default function MapScreen() {
   // What the map opened on until somebody taps a different pin. Derived
   // rather than copied into state by an effect, so a new `focus` param does
   // not need syncing.
-  const selectedId = picked ?? focus ?? null;
+  const selectedId = followMe ? null : (picked ?? focus ?? null);
   const selected = visible.find((b) => b.id === selectedId) ?? null;
 
   /*
@@ -85,7 +94,14 @@ export default function MapScreen() {
 
   return (
     <View style={styles.screen}>
-      <MapCanvas region={region} markers={markers} onSelectMarker={setPicked} />
+      <MapCanvas
+        region={region}
+        markers={markers}
+        onSelectMarker={(id) => {
+          setFollowMe(false);
+          setPicked(id);
+        }}
+      />
 
       {/* Floating search + filters */}
       <View style={[styles.top, { paddingTop: insets.top + spacing.sm }]} pointerEvents="box-none">
@@ -134,11 +150,19 @@ export default function MapScreen() {
 
       {/* Re-centre control, parked above the detail card */}
       <Pressable
+        onPress={() => {
+          setFollowMe(true);
+          setPicked(null);
+        }}
         accessibilityRole="button"
         accessibilityLabel="Centre on my location"
         style={[styles.locateButton, { bottom: cardBottom + (selected ? 150 : 8) }]}
       >
-        <Ionicons name="locate" size={20} color={colors.textPrimary} />
+        <Ionicons
+          name="locate"
+          size={20}
+          color={followMe ? colors.accent : colors.textPrimary}
+        />
       </Pressable>
 
       {/* Selected business card */}

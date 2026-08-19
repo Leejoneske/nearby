@@ -125,6 +125,24 @@ calling `new Date()` internally. Tests cannot pin down a clock they cannot
 reach, and a screen that computes the time on render is a hydration bug on the
 web build.
 
+## A write is not done until the database says so
+
+Three screens used to show success the moment a button was pressed and log the
+failure to a console nobody would ever read: posting a review, replying to one
+as the owner, and saving a listing edit. Each patched local state first and
+fired the write afterwards.
+
+That is the worst shape a write can have here, and the comment above one of
+them said so while doing it: "a review nobody wrote down is worse than being
+asked to sign in, because the person believes they posted it." An owner who
+fixed their opening hours and saw a tick had every reason to believe it, and
+found out otherwise when a customer arrived at a closed shop.
+
+All three now await the write and throw, and all three screens show the
+reason. The rule for anything new: **the local copy follows the database, not
+the other way round.** Optimistic updates are for things that can be put back,
+like a heart on a card, not for things somebody will act on.
+
 ## Data goes through the store
 
 Screens never talk to the database. They use `useStore()`, which talks to
@@ -158,6 +176,50 @@ functions included. New `SECURITY DEFINER` functions need their `EXECUTE`
 revoked from `anon` and `authenticated` unless they are genuinely meant to be
 called from the app. Run the Supabase security advisor after any schema change
 — it catches exactly this.
+
+## What the tests enforce about copy
+
+`copy.test.ts` walks the real source rather than trusting anybody to remember,
+and it now covers three rules:
+
+- **No dashes as punctuation.** An em dash reads as machine-written to a lot
+  of people, and once one is in a screen the next person matches it.
+- **Never name an internal role.** Anything a customer reads is Nearby talking
+  to them. "We read every listing" rather than "an admin reviews every
+  listing": which internal role acted is not information they can use, and
+  naming it makes a routine action sound like an escalation.
+- **The landing page and the legal copy count as copy.** Both had drifted for
+  the same reason: the walk only looked at `.ts` and `.tsx` under `src`, so
+  `legal.json` and `landing/index.html` were invisible to it. The page was
+  carrying three em dashes and a footer link to a privacy policy that did not
+  exist, while every screen in the app obeyed the rule.
+
+`secrets.test.ts` is the other guard. `.env` is committed on purpose: the
+Android workflow has no Supabase environment of its own, so without it CI
+builds an app that throws on launch, and the key in it is the publishable one
+that is designed to ship. The risk is not what is in there now, it is that a
+committed `.env` is an inviting place to put the next value. The test decodes
+any JWT it finds in the files that ship and fails if one says `service_role`.
+
+## The privacy policy is a page, not just a screen
+
+`src/data/legal.json` holds the words, `src/data/legal.ts` types them for the
+app, and `landing/build-legal.mjs` writes `/privacy` and `/terms` at deploy
+time from the same file. One copy of the text, so the page and the screen
+cannot disagree.
+
+It is a page because it has to be. An app store submission needs a public
+privacy URL, and a policy that exists only inside the app is not reachable by
+somebody deciding whether to install it. The footer used to link to `#`, which
+is worse than not linking at all: it looks like a policy exists and goes
+nowhere.
+
+When behaviour changes, this text changes with it or it stops being true. Four
+that had already gone stale: it said you sign in with a phone number long
+after that became an email address; it said nothing about the counts an owner
+sees; it still said reporting needed an account; and it said nothing at all
+about the device code and coarse location the fraud rules collect, which is
+exactly the sort of thing a privacy policy exists to disclose.
 
 ## Two rules the linter enforces, and why
 

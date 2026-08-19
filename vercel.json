@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "npm --prefix admin ci",
-  "buildCommand": "node landing/build-config.mjs && npm --prefix admin run build",
+  "buildCommand": "node landing/build-config.mjs && node landing/build-legal.mjs && npm --prefix admin run build",
   "outputDirectory": "landing",
   "cleanUrls": true,
   "trailingSlash": false,

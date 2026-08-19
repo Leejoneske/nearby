@@ -740,7 +740,6 @@ section {
   min-height: 20px;
 }
 
-
 .howto {
   /* Fixed width, so opening it does not make the box jump wider. */
   width: min(52ch, 100%);
@@ -943,31 +942,6 @@ section {
 
 .footer ul a:hover {
   color: #fff;
-}
-
-.socials {
-  display: flex;
-  gap: 10px;
-}
-
-.socials a {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  border: 1px solid var(--dark-line);
-  display: grid;
-  place-items: center;
-  color: var(--dark-muted);
-}
-
-.socials a:hover {
-  color: #fff;
-  border-color: var(--dark-muted);
-}
-
-.socials svg {
-  width: 15px;
-  height: 15px;
 }
 
 .footer__base {

@@ -28,6 +28,8 @@ export default function OwnerReviewsScreen() {
   const insets = useScreenInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getBusiness, replyToReview } = useStore();
+  const [sending, setSending] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
 
   const business = getBusiness(id);
   const [tab, setTab] = useState<Tab>('all');
@@ -61,12 +63,27 @@ export default function OwnerReviewsScreen() {
 
   const needsReply = business.reviews.filter((r) => !r.ownerReply).length;
 
-  const submitReply = (reviewId: string) => {
+  /*
+   * Waits for the write. It used to patch the reply in locally and report a
+   * failure to nobody, so an owner whose reply was refused watched it appear
+   * under the review and it was never published.
+   */
+  const submitReply = async (reviewId: string) => {
     const body = draft.trim();
-    if (!body) return;
-    replyToReview(business.id, reviewId, body);
-    setReplyingTo(null);
-    setDraft('');
+    if (!body || sending) return;
+
+    setSending(true);
+    setFailure(null);
+    try {
+      await replyToReview(business.id, reviewId, body);
+      setReplyingTo(null);
+      setDraft('');
+    } catch (e) {
+      console.warn('[reviews] the reply was refused', e);
+      setFailure('We could not post that reply. Please try again.');
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -185,11 +202,13 @@ export default function OwnerReviewsScreen() {
                       <Button
                         label="Post reply"
                         size="sm"
+                        loading={sending}
                         disabled={draft.trim().length === 0}
-                        onPress={() => submitReply(review.id)}
+                        onPress={() => void submitReply(review.id)}
                       />
                     </View>
                   </View>
+                  {failure ? <Text style={styles.failure}>{failure}</Text> : null}
                 </View>
               ) : (
                 <Button
@@ -212,6 +231,7 @@ export default function OwnerReviewsScreen() {
 }
 
 const styles = StyleSheet.create({
+  failure: { ...typography.meta, color: colors.danger, marginTop: spacing.sm },
   screen: { flex: 1, backgroundColor: colors.canvas },
   centered: { justifyContent: 'center' },
 

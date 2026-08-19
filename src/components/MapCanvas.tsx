@@ -99,11 +99,16 @@ export function MapCanvas({ region, markers, onSelectMarker, style }: Props) {
       compass={false}
       onDidFailLoadingMap={() => setFailedAt(where)}
     >
+      {/*
+        * Controlled rather than initial-only, so "centre on my location" and
+        * arriving from a listing both move the map. `region` is memoised by
+        * the screen and only changes when the selection or the device
+        * position does, so panning by hand is not undone by a re-render.
+        */}
       <Camera
-        initialViewState={{
-          center: [region.longitude, region.latitude],
-          zoom: zoomFor(region.latitudeDelta),
-        }}
+        center={[region.longitude, region.latitude]}
+        zoom={zoomFor(region.latitudeDelta)}
+        duration={450}
       />
       <UserLocation />
 

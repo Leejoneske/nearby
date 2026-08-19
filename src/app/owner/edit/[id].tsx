@@ -47,6 +47,8 @@ export default function EditListingScreen() {
   const [photos, setPhotos] = useState<string[]>(business?.photos ?? []);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
 
   if (!business) {
     return (
@@ -67,24 +69,42 @@ export default function EditListingScreen() {
       : undefined;
   const canSave = !nameError && !priceError;
 
-  const onSave = () => {
-    if (!canSave) return;
-    updateBusiness(business.id, {
-      name: name.trim(),
-      tagline: tagline.trim(),
-      description: description.trim(),
-      categoryId,
-      address: address.trim(),
-      phone: phone.trim(),
-      website: website.trim() || undefined,
-      priceFrom: Number(priceFrom) || 0,
-      priceTo: Number(priceTo) || 0,
-      hours,
-      amenities,
-      photos,
-    });
-    setSaved(true);
-    setTimeout(() => router.back(), 500);
+  /*
+   * Says "Saved" only once it is.
+   *
+   * The button used to turn into a tick the instant it was pressed, whatever
+   * the database did with the write. An owner who fixed their opening hours
+   * and saw a tick had every reason to believe it — and only found out
+   * otherwise when a customer arrived at a closed shop.
+   */
+  const onSave = async () => {
+    if (!canSave || saving) return;
+
+    setSaving(true);
+    setFailure(null);
+    try {
+      await updateBusiness(business.id, {
+        name: name.trim(),
+        tagline: tagline.trim(),
+        description: description.trim(),
+        categoryId,
+        address: address.trim(),
+        phone: phone.trim(),
+        website: website.trim() || undefined,
+        priceFrom: Number(priceFrom) || 0,
+        priceTo: Number(priceTo) || 0,
+        hours,
+        amenities,
+        photos,
+      });
+      setSaved(true);
+      setTimeout(() => router.back(), 500);
+    } catch (e) {
+      console.warn('[edit] the write was refused', e);
+      setFailure('We could not save those changes. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const toggleDay = (index: number) => {
@@ -258,10 +278,12 @@ export default function EditListingScreen() {
 
       {/* Save bar */}
       <View style={[styles.saveBar, { paddingBottom: insets.bottom + spacing.md }]}>
+        {failure ? <Text style={styles.failure}>{failure}</Text> : null}
         <Button
           label={saved ? 'Saved' : 'Save changes'}
           icon={saved ? 'checkmark' : undefined}
-          onPress={onSave}
+          loading={saving}
+          onPress={() => void onSave()}
           disabled={!canSave}
         />
       </View>
@@ -316,6 +338,12 @@ function emptyWeek(): WeekHours {
 }
 
 const styles = StyleSheet.create({
+  failure: {
+    ...typography.meta,
+    color: colors.danger,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
   screen: { flex: 1, backgroundColor: colors.canvas },
   centered: { justifyContent: 'center' },
 

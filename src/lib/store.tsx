@@ -130,11 +130,14 @@ type StoreValue = {
 
   /** Flags a listing for review. Throws if refused; sends you to sign in. */
   reportBusiness: (id: string, reason: string) => Promise<void>;
-  updateBusiness: (id: string, patch: Partial<Business>) => void;
+  /** Saves a listing edit. Resolves when stored, throws with a reason. */
+  updateBusiness: (id: string, patch: Partial<Business>) => Promise<void>;
   /** Lists a new business. Resolves to its id, or throws with a reason. */
   addBusiness: (input: NewBusiness) => Promise<string>;
-  replyToReview: (businessId: string, reviewId: string, body: string) => void;
-  addReview: (businessId: string, review: Review) => void;
+  /** Answers a review as the owner. Resolves when stored, throws otherwise. */
+  replyToReview: (businessId: string, reviewId: string, body: string) => Promise<void>;
+  /** Posts a review. Resolves when stored, throws with a reason. */
+  addReview: (businessId: string, review: Review) => Promise<void>;
 };
 
 /**
@@ -648,7 +651,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setRecentIds((prev) => {
       if (prev[0] === id) return prev;
       const next = [id, ...prev.filter((x) => x !== id)].slice(0, RECENT_LIMIT);
-      void AsyncStorage.setItem(RECENT_KEY, JSON.stringify(next)).catch(() => {});
+      void AsyncStorage.setItem(RECENT_KEY, JSON.stringify(next))
+        .catch((e) => reportError('store/recent-write', e));
       return next;
     });
   }, []);
@@ -657,7 +661,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const markNotificationRead = useCallback((id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
-    void api.markNotificationReadRemote(id).catch(() => {});
+    void api.markNotificationReadRemote(id).catch((e) => reportError('store/read-receipt', e));
   }, []);
 
   /*
@@ -670,7 +674,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (unread.length === 0) return;
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     unread.forEach((n) => {
-      void api.markNotificationReadRemote(n.id).catch(() => {});
+      void api.markNotificationReadRemote(n.id).catch((e) => reportError('store/read-receipt', e));
     });
   }, [notifications]);
 
@@ -712,30 +716,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [businesses],
   );
 
+  /**
+   * Saves an edit to a listing.
+   *
+   * The write comes first and the local copy follows, rather than the other
+   * way round. Showing the new hours and finding out later that the row still
+   * has the old ones is the bug this replaced — and it is one an owner only
+   * discovers when a customer turns up at a closed shop.
+   */
   const updateBusiness = useCallback(
-    (id: string, patch: Partial<Business>) => {
-      setBusinesses((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)));
-
+    async (id: string, patch: Partial<Business>) => {
       const business = businesses.find((b) => b.id === id);
-      if (!business?.dbId) return;
+      if (!business?.dbId) throw new Error('That listing is not loaded.');
 
       // Only the columns a listing editor can actually change.
-      void api
-        .updateBusinessRemote(business.dbId, {
-          name: patch.name,
-          category: patch.categoryId,
-          tagline: patch.tagline,
-          description: patch.description,
-          address: patch.address,
-          phone: patch.phone,
-          website: patch.website,
-          price_from: patch.priceFrom,
-          price_to: patch.priceTo,
-          hours: patch.hours,
-          amenities: patch.amenities,
-          photos: patch.photos,
-        })
-        .catch((e) => reportError('store/listing', e));
+      await api.updateBusinessRemote(business.dbId, {
+        name: patch.name,
+        category: patch.categoryId,
+        tagline: patch.tagline,
+        description: patch.description,
+        address: patch.address,
+        phone: patch.phone,
+        website: patch.website,
+        price_from: patch.priceFrom,
+        price_to: patch.priceTo,
+        hours: patch.hours,
+        amenities: patch.amenities,
+        photos: patch.photos,
+      });
+
+      setBusinesses((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)));
     },
     [businesses],
   );
@@ -799,68 +809,45 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [businesses],
   );
 
+  /**
+   * Answers a review as the owner.
+   *
+   * Same correction as `addReview`: it used to patch the reply in locally and
+   * report a failure to nobody, so an owner whose reply was refused watched it
+   * appear under the review and it was never published.
+   */
   const replyToReview = useCallback(
-    (businessId: string, reviewId: string, body: string) => {
-      const date = new Date().toISOString().slice(0, 10);
-      setBusinesses((prev) =>
-        prev.map((b) =>
-          b.id === businessId
-            ? {
-                ...b,
-                reviews: b.reviews.map((r) =>
-                  r.id === reviewId ? { ...r, ownerReply: { body, date } } : r,
-                ),
-              }
-            : b,
-        ),
-      );
-      void api
-        .replyToReviewRemote(reviewId, body)
-        .catch((e) => reportError('store/reply', e));
+    async (businessId: string, reviewId: string, body: string) => {
+      await api.replyToReviewRemote(reviewId, body);
+      await loadDetail(businessId);
     },
-    [],
+    [loadDetail],
   );
 
   const addReview = useCallback(
-    (businessId: string, review: Review) => {
-      const business = businesses.find((b) => b.id === businessId);
-
-      // Same reasoning as saving: a review nobody wrote down is worse than
-      // being asked to sign in, because the person believes they posted it.
+    async (businessId: string, review: Review) => {
       if (!profileId) {
         router.push('/(auth)/sign-in');
-        return;
+        throw new NeedsAccountError();
       }
 
-      setBusinesses((prev) =>
-        prev.map((b) => {
-          if (b.id !== businessId) return b;
-          const total = b.rating * b.reviewCount + review.rating;
-          const count = b.reviewCount + 1;
-          return {
-            ...b,
-            reviews: [review, ...b.reviews],
-            reviewCount: count,
-            rating: Math.round((total / count) * 10) / 10,
-          };
-        }),
-      );
+      const business = businesses.find((b) => b.id === businessId);
+      if (!business?.dbId) throw new Error('That listing is not loaded.');
 
-      if (!business?.dbId) return;
-      api
-        .createReview({
-          businessDbId: business.dbId,
-          authorId: profileId,
-          authorName: review.authorName,
-          rating: review.rating,
-          body: review.body,
-        })
-        // The database recomputes the rating, so reload rather than trust the
-        // optimistic arithmetic above.
-        .then(() => loadBusinesses())
-        .catch((e) => console.warn('[store] posting the review failed', e));
+      await api.createReview({
+        businessDbId: business.dbId,
+        authorId: profileId,
+        authorName: review.authorName,
+        rating: review.rating,
+        body: review.body,
+      });
+
+      // The database recomputes the rating, so reload rather than trust
+      // arithmetic done here.
+      await loadBusinesses();
+      await loadDetail(businessId);
     },
-    [businesses, profileId, loadBusinesses],
+    [businesses, profileId, loadBusinesses, loadDetail],
   );
 
   const ownedBusinesses = useMemo(

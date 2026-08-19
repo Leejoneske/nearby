@@ -669,12 +669,6 @@ async function readBytes(uri: string): Promise<ArrayBuffer> {
   return new File(uri).arrayBuffer();
 }
 
-/** Updates the photos on a listing the caller owns. */
-export async function setBusinessPhotos(dbId: string, photos: string[]): Promise<void> {
-  const { error } = await supabase.from('businesses').update({ photos }).eq('id', dbId);
-  if (error) throw error;
-}
-
 /* --------------------------------------------------------------- geo ----- */
 
 /** PostgREST hands back a geography column as WKB hex or GeoJSON. */

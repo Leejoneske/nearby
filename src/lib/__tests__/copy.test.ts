@@ -1,17 +1,34 @@
 /**
  * Guards the house style for anything a customer reads.
  *
- * The rule that keeps getting broken is the dash. An em dash reads as
- * machine-written to a lot of people, and once one is in a screen the next
- * person matches it. This walks the actual source rather than trusting
- * anybody to remember, and it looks only at string literals and JSX text:
- * comments and commit messages are for developers, and are none of its
- * business.
+ * Two rules, both of which keep getting broken.
+ *
+ * The dash: an em dash reads as machine-written to a lot of people, and once
+ * one is in a screen the next person matches it.
+ *
+ * The role: anything a customer reads is Nearby talking to them. Which
+ * internal role acted is not information they can use, and naming it makes a
+ * routine action sound like an escalation. "We read every listing" rather
+ * than "an admin reviews every listing".
+ *
+ * Both walk the actual source rather than trusting anybody to remember, and
+ * both look only at string literals and JSX text: comments and commit
+ * messages are for developers, and are none of this file's business.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOTS = ['src/app', 'src/components', 'src/data'];
+
+/*
+ * The landing page and the legal copy, which the walk above cannot see.
+ *
+ * Both had drifted for exactly that reason. `legal.json` is data rather than
+ * source, and `landing/index.html` is not in `src` at all — so the page went
+ * on carrying three em dashes and a link to a privacy policy that did not
+ * exist, while every screen in the app obeyed the rule.
+ */
+const EXTRA_FILES = ['src/data/legal.json', 'landing/index.html'];
 
 /**
  * Blanks out comments so their punctuation is not mistaken for copy.
@@ -93,6 +110,34 @@ describe('customer-facing copy', () => {
     expect(files.length).toBeGreaterThan(20);
   });
 
+  /*
+   * Words that name whoever is on our side of the app. Checked against copy
+   * only, so a variable called `isAdmin` and a comment about admins are both
+   * fine — it is the sentence somebody reads that has to say "we".
+   */
+  const ROLE_WORDS = /\b(admins?|administrators?|moderators?|operators?|staff|support agents?)\b/i;
+
+  it('never names an internal role in copy', () => {
+    const offences: string[] = [];
+
+    for (const file of files) {
+      const source = readFileSync(file, 'utf8');
+      const lines = source.split('\n');
+
+      stripComments(source)
+        .split('\n')
+        .forEach((line, index) => {
+          // Only inside a quoted string or JSX text, not an identifier.
+          const copy = line.match(/(['\`"])((?:\\.|(?!\1)[^\\])*)\1/g) ?? [];
+          if (copy.some((literal) => ROLE_WORDS.test(literal))) {
+            offences.push(`${file}:${index + 1}  ${lines[index].trim()}`);
+          }
+        });
+    }
+
+    expect(offences).toEqual([]);
+  });
+
   it('uses no dashes as punctuation', () => {
     const offences: string[] = [];
 
@@ -109,6 +154,52 @@ describe('customer-facing copy', () => {
     }
 
     expect(offences).toEqual([]);
+  });
+});
+
+describe('the pages outside src', () => {
+  /**
+   * Blanks HTML comments, keeping the newlines so line numbers still line up.
+   *
+   * Per-line detection is not enough: a comment that opens on one line and
+   * carries prose on the next looks like copy to anything that reads a line
+   * at a time, and the note in `landing/index.html` explaining this very rule
+   * is written exactly that way.
+   */
+  function stripHtmlComments(text: string): string {
+    return text.replace(/<!--[\s\S]*?-->/g, (block) => block.replace(/[^\n]/g, ' '));
+  }
+
+  it.each(EXTRA_FILES)('%s uses no dashes as punctuation', (file) => {
+    const text = readFileSync(join(__dirname, '..', '..', '..', file), 'utf8');
+    const lines = text.split('\n');
+    const offences = stripHtmlComments(text)
+      .split('\n')
+      // In HTML the same character also arrives spelled out as an entity.
+      .map((line, index) => (/[—–]|&[mn]dash;/.test(line) ? `${file}:${index + 1}  ${lines[index].trim()}` : null))
+      .filter((offence): offence is string => offence !== null);
+
+    expect(offences).toEqual([]);
+  });
+
+  /*
+   * A link that names a destination and goes to "#" is the same fault as a
+   * button with no handler: it announces itself, to a screen reader most of
+   * all, and does nothing. The store badges are the exception — they say
+   * "coming soon" in the text next to them and are marked aria-disabled.
+   */
+  it('the landing page has no links that go nowhere', () => {
+    const html = readFileSync(join(__dirname, '..', '..', '..', 'landing/index.html'), 'utf8');
+    const dead = (html.match(/<a\b[^>]*href="#"[^>]*>/g) ?? []).filter(
+      (tag) => !tag.includes('aria-disabled'),
+    );
+    expect(dead).toEqual([]);
+  });
+
+  it('the landing page links to the policy pages the app promises', () => {
+    const html = readFileSync(join(__dirname, '..', '..', '..', 'landing/index.html'), 'utf8');
+    expect(html).toContain('href="/privacy"');
+    expect(html).toContain('href="/terms"');
   });
 });
 

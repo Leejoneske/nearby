@@ -173,3 +173,45 @@
   opacity: 0.7;
   font-size: 13px;
 }
+
+/* The privacy policy and terms, generated from the same words the app shows. */
+.legal h1 {
+  font-size: clamp(28px, 6vw, 40px);
+  line-height: 1.1;
+  margin: 0 0 8px;
+}
+
+.legal-updated {
+  color: var(--muted, #6b625c);
+  font-size: 14px;
+  margin: 0 0 20px;
+}
+
+.legal-intro {
+  font-size: 18px;
+  line-height: 1.6;
+  margin: 0 0 8px;
+}
+
+/* styles.css gives every `section` a full page-band of padding, which is
+   right for the landing page's stacked bands and absurd between two headings
+   in a policy. */
+.legal-section {
+  padding: 24px 0 0;
+}
+
+.legal-section h2 {
+  font-size: 20px;
+  margin: 0 0 10px;
+}
+
+.legal-section p {
+  line-height: 1.7;
+  margin: 0 0 12px;
+  max-width: 68ch;
+}
+
+.listing-foot a {
+  color: var(--accent-ink);
+  font-weight: 600;
+}

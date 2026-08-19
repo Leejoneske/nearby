@@ -51,3 +51,5 @@ admin/.env.local
 
 # Written at deploy time from the environment.
 landing/config.js
+landing/privacy.html
+landing/terms.html

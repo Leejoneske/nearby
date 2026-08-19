@@ -17,7 +17,7 @@ import { Photo } from '../../components/Photo';
 import { EmptyState } from '../../components/primitives';
 import { initialsOf } from '../../lib/format';
 import { useScreenInsets } from '../../lib/insets';
-import { useStore } from '../../lib/store';
+import { NeedsAccountError, useStore } from '../../lib/store';
 import { colors, radii, spacing, typography } from '../../theme/tokens';
 
 const MIN_BODY = 10;
@@ -31,6 +31,8 @@ export default function WriteReviewScreen() {
   const insets = useScreenInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getBusiness, addReview, viewer } = useStore();
+  const [posting, setPosting] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
 
   const business = getBusiness(id);
   const [rating, setRating] = useState(0);
@@ -57,18 +59,37 @@ export default function WriteReviewScreen() {
       : undefined;
   const canPost = rating > 0 && trimmed.length >= MIN_BODY;
 
-  const post = () => {
+  /*
+   * Waits for the write before leaving.
+   *
+   * The screen used to close the moment the button was tapped, so a refusal —
+   * a lost connection, or an account suspended since the app loaded — left
+   * somebody believing they had posted a review that does not exist.
+   */
+  const post = async () => {
     setTouched(true);
-    if (!canPost) return;
-    addReview(business.id, {
-      id: `r-${Date.now()}`,
-      authorName: viewer.name,
-      authorInitials: initialsOf(viewer.name),
-      rating,
-      date: new Date().toISOString().slice(0, 10),
-      body: trimmed,
-    });
-    router.back();
+    if (!canPost || posting) return;
+
+    setPosting(true);
+    setFailure(null);
+    try {
+      await addReview(business.id, {
+        id: `r-${Date.now()}`,
+        authorName: viewer.name,
+        authorInitials: initialsOf(viewer.name),
+        rating,
+        date: new Date().toISOString().slice(0, 10),
+        body: trimmed,
+      });
+      router.back();
+    } catch (e) {
+      // Being sent to sign in is not a failure to explain; that screen is
+      // already on its way.
+      if (e instanceof NeedsAccountError) return;
+      console.warn('[review] the write was refused', e);
+      setFailure('We could not post that just now. Please try again.');
+      setPosting(false);
+    }
   };
 
   return (
@@ -169,7 +190,13 @@ export default function WriteReviewScreen() {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-        <Button label="Post review" onPress={post} disabled={!canPost} />
+        {failure ? <Text style={styles.failure}>{failure}</Text> : null}
+        <Button
+          label="Post review"
+          onPress={() => void post()}
+          loading={posting}
+          disabled={!canPost}
+        />
       </View>
     </KeyboardAvoidingView>
   );
@@ -177,6 +204,12 @@ export default function WriteReviewScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
+  failure: {
+    ...typography.meta,
+    color: colors.danger,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
   centered: { justifyContent: 'center' },
 
   header: {
