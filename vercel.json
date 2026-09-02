@@ -6,12 +6,6 @@
   "outputDirectory": "landing",
   "cleanUrls": true,
   "trailingSlash": false,
-  "crons": [
-    {
-      "path": "/api/ping",
-      "schedule": "*/5 * * * *"
-    }
-  ],
   "headers": [
     {
       "source": "/admin/:path*",
