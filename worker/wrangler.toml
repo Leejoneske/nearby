@@ -1,0 +1,10 @@
+name = "nearby-db-ping"
+main = "ping.js"
+compatibility_date = "2025-09-01"
+
+# Set these in the Cloudflare dashboard or via: wrangler secret put
+# SUPABASE_URL = "https://mwpsnlpyyhznliqfnkcb.supabase.co"
+# SUPABASE_KEY = "sb_publishable_..."
+
+[triggers]
+crons = ["*/5 * * * *"]
